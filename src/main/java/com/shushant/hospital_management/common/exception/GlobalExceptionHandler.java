@@ -15,14 +15,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(ResourceNotFoundException ex) {
-        return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getErrorCode().name(), ex.getMessage(), List.of());
-    }
-
-    @ExceptionHandler(ResourceConflictException.class)
-    public ResponseEntity<ApiResponse<Void>> handleResourceConflict(ResourceConflictException ex) {
-        return buildErrorResponse(HttpStatus.CONFLICT, ex.getErrorCode().name(), ex.getMessage(), List.of());
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
+        HttpStatus status = mapToHttpStatus(ex.getErrorCode());
+        return buildErrorResponse(status, ex.getErrorCode().name(), ex.getMessage(), List.of());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -51,6 +47,19 @@ public class GlobalExceptionHandler {
 
     private String formatFieldError(FieldError error) {
         return error.getField() + ": " + error.getDefaultMessage();
+    }
+
+    private HttpStatus mapToHttpStatus(ErrorCode errorCode) {
+        return switch (errorCode) {
+            case RESOURCE_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case RESOURCE_CONFLICT -> HttpStatus.CONFLICT;
+            case BAD_REQUEST, VALIDATION_ERROR -> HttpStatus.BAD_REQUEST;
+            case AUTHENTICATION_FAILED, TOKEN_INVALID -> HttpStatus.UNAUTHORIZED;
+            case ACCESS_DENIED -> HttpStatus.FORBIDDEN;
+            case RATE_LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
+            case ACCOUNT_LOCKED -> HttpStatus.LOCKED;
+            case INTERNAL_SERVER_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
     }
 
     private ResponseEntity<ApiResponse<Void>> buildErrorResponse(

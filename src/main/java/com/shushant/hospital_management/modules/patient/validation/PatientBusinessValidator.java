@@ -15,21 +15,21 @@ public class PatientBusinessValidator {
     }
 
     public void validateUniqueForCreate(String email, String phoneNumber) {
-        if (patientRepository.existsByEmailIgnoreCase(email)) {
+        if (patientRepository.existsByEmailIgnoreCaseAndDeletedFalse(email)) {
             throw new ResourceConflictException("A patient with this email already exists");
         }
 
-        if (patientRepository.existsByPhoneNumber(phoneNumber)) {
+        if (patientRepository.existsByPhoneNumberAndDeletedFalse(phoneNumber)) {
             throw new ResourceConflictException("A patient with this phone number already exists");
         }
     }
 
     public void validateUniqueForUpdate(UUID patientId, String email, String phoneNumber) {
-        if (patientRepository.existsByEmailIgnoreCaseAndIdNot(email, patientId)) {
+        if (patientRepository.existsByEmailIgnoreCaseAndIdNotAndDeletedFalse(email, patientId)) {
             throw new ResourceConflictException("A patient with this email already exists");
         }
 
-        if (patientRepository.existsByPhoneNumberAndIdNot(phoneNumber, patientId)) {
+        if (patientRepository.existsByPhoneNumberAndIdNotAndDeletedFalse(phoneNumber, patientId)) {
             throw new ResourceConflictException("A patient with this phone number already exists");
         }
     }

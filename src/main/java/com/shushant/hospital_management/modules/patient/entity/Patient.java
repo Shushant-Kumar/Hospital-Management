@@ -28,6 +28,9 @@ public class Patient extends BaseEntity {
     @Column(name = "address", nullable = false, length = 255)
     private String address;
 
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
     public String getFirstName() {
         return firstName;
     }
@@ -74,5 +77,13 @@ public class Patient extends BaseEntity {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
     }
 }
