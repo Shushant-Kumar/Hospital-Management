@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hms-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: hospital_management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Saraswati123
+    volumes:
+      - hms_pgdata:/var/lib/postgresql/data
+
+volumes:
+  hms_pgdata:

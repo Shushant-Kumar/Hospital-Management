@@ -1,148 +1,144 @@
-# Hospital Management Backend
+# 🏥 Hospital Management System
 
-Production-oriented backend for a Hospital Management System built with Java, Spring Boot, and PostgreSQL.
+A production-grade **Java Swing Desktop Application** for managing hospital operations — built with **FlatLaf** dark theme, **PostgreSQL** (via Docker), **HikariCP** connection pooling, and **BCrypt** security.
 
-## Tech Stack
+---
 
-- Java 21
-- Spring Boot 4
-- Spring Security (JWT + RBAC)
-- Spring Data JPA
-- PostgreSQL (primary)
-- H2 (test profile)
-- Maven
+## 📋 Prerequisites
 
-## Current Implementation Status
+| Tool | Version | Check |
+|------|---------|-------|
+| **Java JDK** | 21+ | `java -version` |
+| **Docker** | Any | `docker --version` |
 
-Implemented modules and foundations:
+> Maven wrapper (`mvnw.cmd`) is included — no separate Maven install needed.
 
-- Auth and Security foundation
-  - User, role, permission, refresh token, password reset token model
-  - JWT access token and refresh token flow
-  - Register, login, refresh token, logout, forgot password, reset password APIs
-  - Account lock logic after failed logins
-  - Rate limiting for sensitive auth endpoints
-  - Method-level authorization support
-- Department and Doctor module
-  - Create and list departments
-  - Add, update, soft-delete doctors
-  - List doctors by department (paginated)
-  - Doctor schedule read API
-- Patient module enhancements
-  - Soft delete
-  - Paginated list
-  - Search API
+---
 
-Planned next modules:
+## 🚀 How to Run (Step-by-Step)
 
-- Appointment booking and conflict detection
-- Medical records and prescriptions
-- Billing and payments
-- Admin dashboard, staff management, and audit logs
+### Step 1 — Start PostgreSQL (Docker)
 
-## Project Structure
-
-Main source root:
-
-- src/main/java/com/shushant/hospital_management
-
-Important top-level areas:
-
-- common: shared dto, entity base, exception handling, utilities
-- security: security configuration, JWT filters/services, user principal loading
-- modules/auth: auth domain and APIs
-- modules/patient: patient APIs and services
-- modules/department: department APIs and services
-- modules/doctor: doctor APIs and services
-- modules/appointment: appointment entities and repository (foundation)
-
-## Getting Started
-
-## 1) Prerequisites
-
-- JDK 21+
-- Maven (or use Maven Wrapper)
-- PostgreSQL 14+
-
-## 2) Configure Environment
-
-Use environment variables. Do not commit secrets.
-
-Required:
-
-- DB_URL
-- DB_USERNAME
-- DB_PASSWORD
-- JWT_SECRET
-
-Useful optional values:
-
-- SERVER_PORT
-- JWT_ACCESS_TOKEN_MINUTES
-- JWT_REFRESH_TOKEN_DAYS
-
-You can copy .env.example to .env for local convenience.
-
-## 3) Run the Application
-
-On Windows PowerShell:
-
-```powershell
-.\mvnw.cmd spring-boot:run
+```bash
+docker compose up -d
 ```
 
-Compile only:
+This creates a PostgreSQL 16 container named `hms-postgres` on port **5432** with:
+- **Database:** `hospital_management`
+- **User:** `postgres`
+- **Password:** `Saraswati123`
 
-```powershell
-.\mvnw.cmd -DskipTests compile
+Verify it's running:
+```bash
+docker ps
 ```
 
-Run tests:
+### Step 2 — Build & Launch the Application
 
-```powershell
-.\mvnw.cmd test
+```bash
+.\mvnw.cmd compile exec:java -D"exec.mainClass=com.shushant.hospital_management.HospitalManagementApp"
 ```
 
-## API Base Path
+On first launch, the app will:
+1. Connect to PostgreSQL
+2. Create all 14 database tables
+3. Seed dummy data (patients, doctors, appointments, etc.)
+4. Open the **Login** window
 
-All HTTP APIs use:
+### Step 3 — Login
 
-- /api/v1
+Use any of these credentials:
 
-Examples:
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `admin123` | **Admin** (full access) |
+| `doctor1` | `doctor123` | Doctor |
+| `nurse1` | `nurse123` | Nurse |
+| `pharma1` | `pharma123` | Pharmacist |
+| `lab1` | `lab123` | Lab Technician |
+| `reception1` | `recep123` | Receptionist |
 
-- /api/v1/auth/login
-- /api/v1/patients
-- /api/v1/departments
-- /api/v1/doctors
+---
 
-## Security Notes
+## 🧩 Modules
 
-- JWT is used for stateless authentication.
-- Access tokens are short-lived.
-- Refresh tokens are persisted and rotated.
-- Passwords are BCrypt-hashed.
-- RBAC is enforced with roles and permissions.
+| Module | Features |
+|--------|----------|
+| **📊 Dashboard** | Live stats — patient count, doctors, today's appointments, bed occupancy, revenue |
+| **🧑‍🦽 Patients** | Register, search, edit, delete, view details (15 fields including insurance & emergency) |
+| **👨‍⚕️ Doctors** | Add/edit/delete doctors, department assignment, consultation fees |
+| **📅 Appointments** | Book with conflict detection, token numbers, check-in/complete/cancel workflows |
+| **💳 Billing** | Create bills (amount/discount/tax), record payments (Cash/Card/UPI/NEFT) |
+| **💊 Pharmacy** | Medicine inventory CRUD, low stock alerts, batch tracking |
+| **🔬 Lab Tests** | Order → Collect Sample → Process → Enter Result workflow |
+| **🛏️ Beds & Wards** | Add beds, assign/release patients, ward occupancy tracking |
+| **👥 Users** | Create staff accounts, toggle active, reset passwords (Admin only) |
 
-## Configuration Notes
+---
 
-Main configuration file:
+## 📦 Seed Data Included
 
-- src/main/resources/application.properties
+On first launch, the app auto-seeds:
 
-This project currently uses Hibernate auto schema update in local development.
-For production, use explicit migration tooling (Flyway or Liquibase) and controlled rollout practices.
+- **6 Users** (admin + 5 staff across roles)
+- **10 Departments** (Cardiology, Surgery, Pediatrics, etc.)
+- **6 Doctors** (across specializations, ₹500–₹1000 fees)
+- **10 Patients** (with insurance, allergies, emergency contacts)
+- **8 Appointments** (today, various statuses)
+- **12 Medicines** (tablets, capsules, syrups, injections)
+- **5 Bills** (paid, partial, pending)
+- **6 Lab Tests** (various stages of the workflow)
+- **10 Beds** (General, Semi-Private, Private, ICU, NICU)
 
-## Design Documentation
+---
 
-Detailed architecture is documented in:
+## 🛑 How to Stop
 
-- ARCHITECTURE.md
+```bash
+# Stop the Java app: Close the window or press Ctrl+C in terminal
 
-Local setup references and notes are in:
+# Stop PostgreSQL container (keeps data):
+docker compose down
 
-- HELP.md
+# Stop and DELETE all data:
+docker compose down -v
+```
 
-## License
+---
 
-This project is licensed under the MIT License. See LICENSE.
+## 📂 Project Structure
+
+```
+hospital-management/
+├── docker-compose.yml              ← PostgreSQL container config
+├── pom.xml                         ← Maven dependencies
+├── mvnw.cmd / mvnw                 ← Maven wrapper
+└── src/main/java/com/shushant/hospital_management/
+    ├── HospitalManagementApp.java  ← Entry point
+    ├── db/
+    │   ├── DatabaseConnection.java ← HikariCP pool
+    │   └── DatabaseInitializer.java← DDL + seed data
+    ├── dao/                        ← Data Access Objects (JDBC)
+    │   ├── PatientDao, DoctorDao, DepartmentDao
+    │   ├── AppointmentDao, BillingDao
+    │   ├── PharmacyDao, LabTestDao, BedDao, UserDao
+    ├── ui/
+    │   ├── LoginFrame.java         ← Login screen
+    │   ├── MainFrame.java          ← Sidebar + panel switching
+    │   └── panels/                 ← 9 module panels
+    └── util/
+        └── SessionManager.java     ← BCrypt auth + roles
+```
+
+---
+
+## ⚙️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Language | Java 21 |
+| UI | Swing + FlatLaf 3.5.4 (Dark Theme) |
+| Database | PostgreSQL 16 (Docker) |
+| Connection Pool | HikariCP 6.2.1 |
+| Security | BCrypt (jBCrypt 0.4) |
+| Build | Maven |
