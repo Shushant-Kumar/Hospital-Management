@@ -2,6 +2,9 @@ package com.shushant.hospital_management.ui.panels;
 
 import com.shushant.hospital_management.dao.DepartmentDao;
 import com.shushant.hospital_management.dao.DoctorDao;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.RBACManager.Permission;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -26,11 +29,14 @@ public class DoctorPanel extends JPanel {
         title.setForeground(new Color(100, 180, 255));
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        JButton addBtn = btn("➕ Add Doctor", new Color(76, 175, 80));
-        addBtn.addActionListener(e -> showAddDialog());
+        if (RBACManager.hasPermission(Module.DOCTORS, Permission.CREATE)) {
+            JButton addBtn = btn("➕ Add Doctor", new Color(76, 175, 80));
+            addBtn.addActionListener(e -> showAddDialog());
+            actions.add(addBtn);
+        }
         JButton refreshBtn = btn("🔄", null);
         refreshBtn.addActionListener(e -> loadData());
-        actions.add(addBtn); actions.add(refreshBtn);
+        actions.add(refreshBtn);
 
         topBar.add(title, BorderLayout.WEST);
         topBar.add(actions, BorderLayout.EAST);
@@ -46,11 +52,16 @@ public class DoctorPanel extends JPanel {
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
-        JButton editBtn = btn("✏️ Edit", new Color(255, 152, 0));
-        editBtn.addActionListener(e -> showEditDialog());
-        JButton deleteBtn = btn("🗑️ Delete", new Color(244, 67, 54));
-        deleteBtn.addActionListener(e -> deleteSelected());
-        bottomBar.add(editBtn); bottomBar.add(deleteBtn);
+        if (RBACManager.hasPermission(Module.DOCTORS, Permission.EDIT)) {
+            JButton editBtn = btn("✏️ Edit", new Color(255, 152, 0));
+            editBtn.addActionListener(e -> showEditDialog());
+            bottomBar.add(editBtn);
+        }
+        if (RBACManager.hasPermission(Module.DOCTORS, Permission.DELETE)) {
+            JButton deleteBtn = btn("🗑️ Delete", new Color(244, 67, 54));
+            deleteBtn.addActionListener(e -> deleteSelected());
+            bottomBar.add(deleteBtn);
+        }
         add(bottomBar, BorderLayout.SOUTH);
 
         loadData();
@@ -62,6 +73,8 @@ public class DoctorPanel extends JPanel {
     }
 
     private void showAddDialog() {
+        if (!RBACManager.requirePermission(Module.DOCTORS, Permission.CREATE, this)) return;
+
         JTextField fFirst = new JTextField(), fLast = new JTextField(), fEmail = new JTextField(),
                 fPhone = new JTextField(), fSpec = new JTextField(), fLicense = new JTextField(),
                 fFee = new JTextField("500"), fDuration = new JTextField("30");
@@ -91,6 +104,8 @@ public class DoctorPanel extends JPanel {
     }
 
     private void showEditDialog() {
+        if (!RBACManager.requirePermission(Module.DOCTORS, Permission.EDIT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a doctor first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
@@ -123,6 +138,8 @@ public class DoctorPanel extends JPanel {
     }
 
     private void deleteSelected() {
+        if (!RBACManager.requirePermission(Module.DOCTORS, Permission.DELETE, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a doctor first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);

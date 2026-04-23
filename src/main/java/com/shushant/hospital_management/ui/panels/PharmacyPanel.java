@@ -1,6 +1,9 @@
 package com.shushant.hospital_management.ui.panels;
 
 import com.shushant.hospital_management.dao.PharmacyDao;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.RBACManager.Permission;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -23,13 +26,16 @@ public class PharmacyPanel extends JPanel {
         title.setFont(new Font("Segoe UI", Font.BOLD, 20));
         title.setForeground(new Color(100, 180, 255));
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        JButton addBtn = btn("➕ Add Medicine", new Color(76, 175, 80));
-        addBtn.addActionListener(e -> showAddDialog());
+        if (RBACManager.hasPermission(Module.PHARMACY, Permission.CREATE)) {
+            JButton addBtn = btn("➕ Add Medicine", new Color(76, 175, 80));
+            addBtn.addActionListener(e -> showAddDialog());
+            actions.add(addBtn);
+        }
         JButton alertsBtn = btn("⚠️ Low Stock", new Color(255, 152, 0));
         alertsBtn.addActionListener(e -> showLowStock());
         JButton refreshBtn = btn("🔄", null);
         refreshBtn.addActionListener(e -> loadData());
-        actions.add(addBtn); actions.add(alertsBtn); actions.add(refreshBtn);
+        actions.add(alertsBtn); actions.add(refreshBtn);
         topBar.add(title, BorderLayout.WEST);
         topBar.add(actions, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
@@ -43,9 +49,11 @@ public class PharmacyPanel extends JPanel {
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
-        JButton editBtn = btn("✏️ Edit", new Color(255, 152, 0));
-        editBtn.addActionListener(e -> showEditDialog());
-        bottomBar.add(editBtn);
+        if (RBACManager.hasPermission(Module.PHARMACY, Permission.EDIT)) {
+            JButton editBtn = btn("✏️ Edit", new Color(255, 152, 0));
+            editBtn.addActionListener(e -> showEditDialog());
+            bottomBar.add(editBtn);
+        }
         add(bottomBar, BorderLayout.SOUTH);
 
         loadData();
@@ -57,6 +65,8 @@ public class PharmacyPanel extends JPanel {
     }
 
     private void showAddDialog() {
+        if (!RBACManager.requirePermission(Module.PHARMACY, Permission.CREATE, this)) return;
+
         JTextField fName = new JTextField(), fGeneric = new JTextField(), fMfg = new JTextField(),
                 fBatch = new JTextField(), fExpiry = new JTextField(), fQty = new JTextField("0"),
                 fPrice = new JTextField("0"), fReorder = new JTextField("10");
@@ -68,7 +78,14 @@ public class PharmacyPanel extends JPanel {
 
         if (JOptionPane.showConfirmDialog(this, fields, "Add Medicine", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION) {
             Date expiry = null;
-            try { if (!fExpiry.getText().trim().isEmpty()) expiry = Date.valueOf(fExpiry.getText().trim()); } catch (Exception ignored) {}
+            try {
+                if (!fExpiry.getText().trim().isEmpty()) {
+                    expiry = Date.valueOf(fExpiry.getText().trim());
+                }
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date format for Expiry Date. Use YYYY-MM-DD.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             dao.create(fName.getText().trim(), fGeneric.getText().trim(), fMfg.getText().trim(),
                     fBatch.getText().trim(), expiry, Integer.parseInt(fQty.getText().trim()),
                     Double.parseDouble(fPrice.getText().trim()), Integer.parseInt(fReorder.getText().trim()),
@@ -78,6 +95,8 @@ public class PharmacyPanel extends JPanel {
     }
 
     private void showEditDialog() {
+        if (!RBACManager.requirePermission(Module.PHARMACY, Permission.EDIT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a medicine first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
@@ -96,7 +115,14 @@ public class PharmacyPanel extends JPanel {
 
         if (JOptionPane.showConfirmDialog(this, fields, "Edit Medicine", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION) {
             Date expiry = null;
-            try { if (!fExpiry.getText().trim().isEmpty()) expiry = Date.valueOf(fExpiry.getText().trim()); } catch (Exception ignored) {}
+            try {
+                if (!fExpiry.getText().trim().isEmpty()) {
+                    expiry = Date.valueOf(fExpiry.getText().trim());
+                }
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date format for Expiry Date. Use YYYY-MM-DD.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             dao.update(id, fName.getText().trim(), fGeneric.getText().trim(), fMfg.getText().trim(),
                     fBatch.getText().trim(), expiry, Integer.parseInt(fQty.getText().trim()),
                     Double.parseDouble(fPrice.getText().trim()), Integer.parseInt(fReorder.getText().trim()),

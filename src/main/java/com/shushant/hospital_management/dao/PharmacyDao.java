@@ -20,7 +20,7 @@ public class PharmacyDao {
             ps.setDouble(7, unitPrice); ps.setInt(8, reorderLevel); ps.setString(9, category);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 
@@ -38,7 +38,7 @@ public class PharmacyDao {
             ps.setDouble(7, unitPrice); ps.setInt(8, reorderLevel); ps.setString(9, category);
             ps.setInt(10, id);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public List<Object[]> findAll() {
@@ -53,7 +53,7 @@ public class PharmacyDao {
                     rs.getDate("expiry_date"), rs.getInt("reorder_level")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -67,7 +67,7 @@ public class PharmacyDao {
                     rs.getInt("id"), rs.getString("name"), rs.getInt("quantity"), rs.getInt("reorder_level")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -81,7 +81,7 @@ public class PharmacyDao {
                     rs.getInt("id"), rs.getString("name"), rs.getDate("expiry_date"), rs.getInt("quantity")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -90,6 +90,6 @@ public class PharmacyDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE medicines SET quantity = quantity - ? WHERE id = ? AND quantity >= ?")) {
             ps.setInt(1, qty); ps.setInt(2, medicineId); ps.setInt(3, qty);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 }

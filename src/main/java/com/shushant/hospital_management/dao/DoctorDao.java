@@ -23,7 +23,7 @@ public class DoctorDao {
             ps.setDouble(8, consultationFee); ps.setInt(9, consultationDurationMin);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 
@@ -41,14 +41,14 @@ public class DoctorDao {
             ps.setInt(6, departmentId); ps.setDouble(7, consultationFee);
             ps.setInt(8, consultationDurationMin); ps.setInt(9, id);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public void delete(int id) {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement("UPDATE doctors SET active = FALSE WHERE id = ?")) {
             ps.setInt(1, id); ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public List<Object[]> findAll() {
@@ -68,7 +68,7 @@ public class DoctorDao {
                     rs.getString("dept"), rs.getDouble("consultation_fee")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -86,7 +86,7 @@ public class DoctorDao {
                     rs.getDouble("consultation_fee"), rs.getInt("consultation_duration_min")
                 };
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return null;
     }
 
@@ -98,7 +98,7 @@ public class DoctorDao {
             while (rs.next()) {
                 list.add(new String[]{ String.valueOf(rs.getInt("id")), rs.getString("name") });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -107,7 +107,17 @@ public class DoctorDao {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM doctors WHERE active = TRUE")) {
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+        return 0;
+    }
+
+    public int findIdByUserId(int userId) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT id FROM doctors WHERE user_id = ? AND active = TRUE")) {
+            ps.setInt(1, userId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return 0;
     }
 }

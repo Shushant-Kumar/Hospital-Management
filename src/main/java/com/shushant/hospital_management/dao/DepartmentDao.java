@@ -15,7 +15,7 @@ public class DepartmentDao {
             while (rs.next()) {
                 list.add(new Object[]{ rs.getInt("id"), rs.getString("name"), rs.getString("code"), rs.getString("description") });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -27,7 +27,7 @@ public class DepartmentDao {
             while (rs.next()) {
                 list.add(new String[]{ String.valueOf(rs.getInt("id")), rs.getString("name") });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -37,7 +37,7 @@ public class DepartmentDao {
             ps.setString(1, name); ps.setString(2, code); ps.setString(3, description);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 }

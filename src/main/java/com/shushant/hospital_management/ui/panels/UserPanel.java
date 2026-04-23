@@ -1,6 +1,9 @@
 package com.shushant.hospital_management.ui.panels;
 
 import com.shushant.hospital_management.dao.UserDao;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.RBACManager.Permission;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -16,6 +19,14 @@ public class UserPanel extends JPanel {
     public UserPanel() {
         setLayout(new BorderLayout(0, 10));
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        // Defense-in-depth: block non-admin users
+        if (!RBACManager.hasPermission(Module.USERS, Permission.VIEW)) {
+            add(new JLabel("Access Denied — Admin only.", SwingConstants.CENTER), BorderLayout.CENTER);
+            tableModel = new DefaultTableModel(COLUMNS, 0);
+            table = new JTable(tableModel);
+            return;
+        }
 
         JPanel topBar = new JPanel(new BorderLayout());
         JLabel title = new JLabel("User Management");
@@ -56,6 +67,8 @@ public class UserPanel extends JPanel {
     }
 
     private void showAddDialog() {
+        if (!RBACManager.requirePermission(Module.USERS, Permission.CREATE, this)) return;
+
         JTextField fUsername = new JTextField(), fPassword = new JTextField(),
                 fFullName = new JTextField(), fEmail = new JTextField();
         JComboBox<String> fRole = new JComboBox<>(new String[]{
@@ -76,6 +89,8 @@ public class UserPanel extends JPanel {
     }
 
     private void toggleActive() {
+        if (!RBACManager.requirePermission(Module.USERS, Permission.EDIT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a user first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
@@ -85,6 +100,8 @@ public class UserPanel extends JPanel {
     }
 
     private void resetPassword() {
+        if (!RBACManager.requirePermission(Module.USERS, Permission.EDIT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a user first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);

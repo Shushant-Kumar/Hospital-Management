@@ -17,7 +17,7 @@ public class UserDao {
             ps.setString(3, fullName); ps.setString(4, email); ps.setString(5, role);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 
@@ -33,7 +33,7 @@ public class UserDao {
                     rs.getTimestamp("created_at")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -42,7 +42,7 @@ public class UserDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE users SET active = ? WHERE id = ?")) {
             ps.setBoolean(1, active); ps.setInt(2, id);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public void resetPassword(int id, String newPassword) {
@@ -51,6 +51,6 @@ public class UserDao {
             ps.setString(1, BCrypt.hashpw(newPassword, BCrypt.gensalt()));
             ps.setInt(2, id);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 }

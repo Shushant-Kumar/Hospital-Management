@@ -1,19 +1,17 @@
 package com.shushant.hospital_management.ui;
 
 import com.shushant.hospital_management.ui.panels.*;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
 import com.shushant.hospital_management.util.SessionManager;
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 
 public class MainFrame extends JFrame {
 
     private final JPanel contentPanel = new JPanel(new CardLayout());
     private final JPanel sidebarPanel = new JPanel();
-
-    private static final String[] MODULES = {
-        "Dashboard", "Patients", "Doctors", "Appointments",
-        "Billing", "Pharmacy", "Lab Tests", "Beds & Wards", "Users"
-    };
 
     public MainFrame() {
         setTitle("Hospital Management System — " + SessionManager.getCurrentFullName()
@@ -42,15 +40,19 @@ public class MainFrame extends JFrame {
         sidebarPanel.add(new JSeparator());
         sidebarPanel.add(Box.createVerticalStrut(10));
 
-        // Module buttons
+        // Build sidebar and content panels based on RBAC
+        List<Module> accessibleModules = RBACManager.getAccessibleModules();
         ButtonGroup bg = new ButtonGroup();
-        for (String mod : MODULES) {
-            if (shouldShowModule(mod)) {
-                JToggleButton btn = createSidebarButton(mod);
-                bg.add(btn);
-                sidebarPanel.add(btn);
-                sidebarPanel.add(Box.createVerticalStrut(3));
-            }
+
+        for (Module mod : accessibleModules) {
+            String displayName = mod.getDisplayName();
+            JToggleButton btn = createSidebarButton(displayName);
+            bg.add(btn);
+            sidebarPanel.add(btn);
+            sidebarPanel.add(Box.createVerticalStrut(3));
+
+            // Lazy-create panel for each accessible module
+            contentPanel.add(createPanelForModule(mod), displayName);
         }
 
         sidebarPanel.add(Box.createVerticalGlue());
@@ -68,24 +70,30 @@ public class MainFrame extends JFrame {
         logoutBtn.addActionListener(e -> logout());
         sidebarPanel.add(logoutBtn);
 
-        // Content panels
-        contentPanel.add(new DashboardPanel(), "Dashboard");
-        contentPanel.add(new PatientPanel(), "Patients");
-        contentPanel.add(new DoctorPanel(), "Doctors");
-        contentPanel.add(new AppointmentPanel(), "Appointments");
-        contentPanel.add(new BillingPanel(), "Billing");
-        contentPanel.add(new PharmacyPanel(), "Pharmacy");
-        contentPanel.add(new LabTestPanel(), "Lab Tests");
-        contentPanel.add(new BedPanel(), "Beds & Wards");
-        contentPanel.add(new UserPanel(), "Users");
-
         // Layout
         setLayout(new BorderLayout());
         add(sidebarPanel, BorderLayout.WEST);
         add(contentPanel, BorderLayout.CENTER);
 
-        // Show Dashboard by default
-        showModule("Dashboard");
+        // Show first accessible module by default
+        if (!accessibleModules.isEmpty()) {
+            showModule(accessibleModules.get(0).getDisplayName());
+        }
+    }
+
+    private JPanel createPanelForModule(Module mod) {
+        return switch (mod) {
+            case DASHBOARD      -> new DashboardPanel();
+            case PATIENTS       -> new PatientPanel();
+            case DOCTORS        -> new DoctorPanel();
+            case APPOINTMENTS   -> new AppointmentPanel();
+            case BILLING        -> new BillingPanel();
+            case PHARMACY       -> new PharmacyPanel();
+            case LAB_TESTS      -> new LabTestPanel();
+            case BEDS           -> new BedPanel();
+            case USERS          -> new UserPanel();
+            case PATIENT_PORTAL -> new PatientDashboardPanel();
+        };
     }
 
     private JToggleButton createSidebarButton(String name) {
@@ -99,6 +107,7 @@ public class MainFrame extends JFrame {
             case "Lab Tests"    -> "🔬";
             case "Beds & Wards" -> "🛏️";
             case "Users"        -> "👥";
+            case "My Dashboard" -> "🏠";
             default             -> "📋";
         };
 
@@ -119,19 +128,6 @@ public class MainFrame extends JFrame {
     private void showModule(String name) {
         CardLayout cl = (CardLayout) contentPanel.getLayout();
         cl.show(contentPanel, name);
-    }
-
-    private boolean shouldShowModule(String mod) {
-        String role = SessionManager.getCurrentRole();
-        if ("ADMIN".equals(role)) return true;
-        return switch (mod) {
-            case "Users" -> false;
-            case "Pharmacy" -> SessionManager.hasRole("PHARMACIST", "ADMIN");
-            case "Lab Tests" -> SessionManager.hasRole("LAB_TECHNICIAN", "DOCTOR", "ADMIN");
-            case "Beds & Wards" -> SessionManager.hasRole("NURSE", "ADMIN", "RECEPTIONIST");
-            case "Billing" -> SessionManager.hasRole("ACCOUNTANT", "ADMIN", "RECEPTIONIST");
-            default -> true;
-        };
     }
 
     private void logout() {

@@ -15,7 +15,7 @@ public class BedDao {
             ps.setInt(4, floor); ps.setDouble(5, dailyRate);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 
@@ -24,7 +24,7 @@ public class BedDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE beds SET patient_id = ?, status = 'OCCUPIED' WHERE id = ?")) {
             ps.setInt(1, patientId); ps.setInt(2, bedId);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public void releaseBed(int bedId) {
@@ -32,7 +32,7 @@ public class BedDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE beds SET patient_id = NULL, status = 'AVAILABLE' WHERE id = ?")) {
             ps.setInt(1, bedId);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public List<Object[]> findAll() {
@@ -52,7 +52,7 @@ public class BedDao {
                     rs.getDouble("daily_rate"), rs.getString("patient_name")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -61,7 +61,7 @@ public class BedDao {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM beds WHERE status = 'AVAILABLE'")) {
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return 0;
     }
 
@@ -70,7 +70,7 @@ public class BedDao {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM beds WHERE status = 'OCCUPIED'")) {
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return 0;
     }
 }

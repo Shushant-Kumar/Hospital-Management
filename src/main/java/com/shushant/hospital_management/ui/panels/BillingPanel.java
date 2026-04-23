@@ -2,6 +2,10 @@ package com.shushant.hospital_management.ui.panels;
 
 import com.shushant.hospital_management.dao.BillingDao;
 import com.shushant.hospital_management.dao.PatientDao;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.RBACManager.Permission;
+import com.shushant.hospital_management.util.SessionManager;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -25,11 +29,14 @@ public class BillingPanel extends JPanel {
         title.setFont(new Font("Segoe UI", Font.BOLD, 20));
         title.setForeground(new Color(100, 180, 255));
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        JButton createBtn = btn("➕ Create Bill", new Color(76, 175, 80));
-        createBtn.addActionListener(e -> showCreateBillDialog());
+        if (RBACManager.hasPermission(Module.BILLING, Permission.CREATE)) {
+            JButton createBtn = btn("➕ Create Bill", new Color(76, 175, 80));
+            createBtn.addActionListener(e -> showCreateBillDialog());
+            actions.add(createBtn);
+        }
         JButton refreshBtn = btn("🔄", null);
         refreshBtn.addActionListener(e -> loadData());
-        actions.add(createBtn); actions.add(refreshBtn);
+        actions.add(refreshBtn);
         topBar.add(title, BorderLayout.WEST);
         topBar.add(actions, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
@@ -43,9 +50,11 @@ public class BillingPanel extends JPanel {
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
-        JButton payBtn = btn("💳 Record Payment", new Color(0, 150, 136));
-        payBtn.addActionListener(e -> recordPayment());
-        bottomBar.add(payBtn);
+        if (RBACManager.hasPermission(Module.BILLING, Permission.RECORD_PAYMENT)) {
+            JButton payBtn = btn("💳 Record Payment", new Color(0, 150, 136));
+            payBtn.addActionListener(e -> recordPayment());
+            bottomBar.add(payBtn);
+        }
         add(bottomBar, BorderLayout.SOUTH);
 
         loadData();
@@ -57,6 +66,8 @@ public class BillingPanel extends JPanel {
     }
 
     private void showCreateBillDialog() {
+        if (!RBACManager.requirePermission(Module.BILLING, Permission.CREATE, this)) return;
+
         List<Object[]> patients = patientDao.findAll();
         if (patients.isEmpty()) { JOptionPane.showMessageDialog(this, "No patients found."); return; }
 
@@ -75,7 +86,8 @@ public class BillingPanel extends JPanel {
                 double discount = Double.parseDouble(fDiscount.getText().trim());
                 double tax = Double.parseDouble(fTax.getText().trim());
                 double net = total - discount + tax;
-                dao.createBill(dao.generateBillNumber(), patientId, total, discount, tax, net, (String) fType.getSelectedItem());
+                dao.createBill(dao.generateBillNumber(), patientId, total, discount, tax, net,
+                        (String) fType.getSelectedItem(), SessionManager.getCurrentUserId());
                 loadData();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Invalid input: " + ex.getMessage());
@@ -84,6 +96,8 @@ public class BillingPanel extends JPanel {
     }
 
     private void recordPayment() {
+        if (!RBACManager.requirePermission(Module.BILLING, Permission.RECORD_PAYMENT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a bill first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);

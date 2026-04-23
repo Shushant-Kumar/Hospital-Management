@@ -3,6 +3,10 @@ package com.shushant.hospital_management.ui.panels;
 import com.shushant.hospital_management.dao.AppointmentDao;
 import com.shushant.hospital_management.dao.DoctorDao;
 import com.shushant.hospital_management.dao.PatientDao;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.RBACManager.Permission;
+import com.shushant.hospital_management.util.SessionManager;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -32,11 +36,14 @@ public class AppointmentPanel extends JPanel {
         title.setForeground(new Color(100, 180, 255));
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        JButton bookBtn = btn("📅 Book Appointment", new Color(76, 175, 80));
-        bookBtn.addActionListener(e -> showBookDialog());
+        if (RBACManager.hasPermission(Module.APPOINTMENTS, Permission.CREATE)) {
+            JButton bookBtn = btn("📅 Book Appointment", new Color(76, 175, 80));
+            bookBtn.addActionListener(e -> showBookDialog());
+            actions.add(bookBtn);
+        }
         JButton refreshBtn = btn("🔄", null);
         refreshBtn.addActionListener(e -> loadData());
-        actions.add(bookBtn); actions.add(refreshBtn);
+        actions.add(refreshBtn);
         topBar.add(title, BorderLayout.WEST);
         topBar.add(actions, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
@@ -51,13 +58,21 @@ public class AppointmentPanel extends JPanel {
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
-        JButton cancelBtn = btn("❌ Cancel", new Color(244, 67, 54));
-        cancelBtn.addActionListener(e -> cancelSelected());
-        JButton completeBtn = btn("✅ Complete", new Color(76, 175, 80));
-        completeBtn.addActionListener(e -> updateStatus("COMPLETED"));
-        JButton checkinBtn = btn("📋 Check-In", new Color(33, 150, 243));
-        checkinBtn.addActionListener(e -> updateStatus("CHECKED_IN"));
-        bottomBar.add(checkinBtn); bottomBar.add(completeBtn); bottomBar.add(cancelBtn);
+        if (RBACManager.hasPermission(Module.APPOINTMENTS, Permission.CHECKIN_APPOINTMENT)) {
+            JButton checkinBtn = btn("📋 Check-In", new Color(33, 150, 243));
+            checkinBtn.addActionListener(e -> updateStatus("CHECKED_IN"));
+            bottomBar.add(checkinBtn);
+        }
+        if (RBACManager.hasPermission(Module.APPOINTMENTS, Permission.COMPLETE_APPOINTMENT)) {
+            JButton completeBtn = btn("✅ Complete", new Color(76, 175, 80));
+            completeBtn.addActionListener(e -> updateStatus("COMPLETED"));
+            bottomBar.add(completeBtn);
+        }
+        if (RBACManager.hasPermission(Module.APPOINTMENTS, Permission.CANCEL_APPOINTMENT)) {
+            JButton cancelBtn = btn("❌ Cancel", new Color(244, 67, 54));
+            cancelBtn.addActionListener(e -> cancelSelected());
+            bottomBar.add(cancelBtn);
+        }
         add(bottomBar, BorderLayout.SOUTH);
 
         loadData();
@@ -65,13 +80,20 @@ public class AppointmentPanel extends JPanel {
 
     private void loadData() {
         tableModel.setRowCount(0);
-        for (Object[] row : dao.findAll()) tableModel.addRow(row);
+        List<Object[]> data;
+        // DOCTORs see only their own appointments
+        if (RBACManager.isDoctorRole() && SessionManager.getCurrentDoctorId() > 0) {
+            data = dao.findByDoctorId(SessionManager.getCurrentDoctorId());
+        } else {
+            data = dao.findAll();
+        }
+        for (Object[] row : data) tableModel.addRow(row);
     }
 
     private void showBookDialog() {
-        List<String[]> patients = patientDao.findAll().stream()
-                .map(r -> new String[]{ String.valueOf(r[0]), r[2] + " " + r[3] + " (" + r[1] + ")" })
-                .toList();
+        if (!RBACManager.requirePermission(Module.APPOINTMENTS, Permission.CREATE, this)) return;
+
+        List<Object[]> patients = patientDao.findAll();
         List<String[]> doctors = doctorDao.findAllForCombo();
 
         if (patients.isEmpty() || doctors.isEmpty()) {
@@ -79,7 +101,8 @@ public class AppointmentPanel extends JPanel {
             return;
         }
 
-        JComboBox<String> fPatient = new JComboBox<>(patients.stream().map(p -> p[1]).toArray(String[]::new));
+        JComboBox<String> fPatient = new JComboBox<>(patients.stream()
+                .map(r -> r[2] + " " + r[3] + " (" + r[1] + ")").toArray(String[]::new));
         JComboBox<String> fDoctor = new JComboBox<>(doctors.stream().map(d -> d[1]).toArray(String[]::new));
         JTextField fDate = new JTextField(LocalDate.now().toString());
         JTextField fTime = new JTextField(LocalTime.now().plusHours(1).withMinute(0).withSecond(0).toString().substring(0, 5));
@@ -93,7 +116,7 @@ public class AppointmentPanel extends JPanel {
         int res = JOptionPane.showConfirmDialog(this, fields, "Book Appointment", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (res == JOptionPane.OK_OPTION) {
             try {
-                int patientId = Integer.parseInt(patients.get(fPatient.getSelectedIndex())[0]);
+                int patientId = (int) patients.get(fPatient.getSelectedIndex())[0];
                 int doctorId = Integer.parseInt(doctors.get(fDoctor.getSelectedIndex())[0]);
                 Date date = Date.valueOf(fDate.getText().trim());
                 Time startTime = Time.valueOf(fTime.getText().trim() + ":00");
@@ -105,7 +128,8 @@ public class AppointmentPanel extends JPanel {
                 }
 
                 int token = dao.getNextToken(doctorId, date);
-                dao.create(patientId, doctorId, date, startTime, endTime, token, fNotes.getText().trim(), fWalkIn.isSelected());
+                dao.create(patientId, doctorId, date, startTime, endTime, token, fNotes.getText().trim(),
+                        fWalkIn.isSelected(), SessionManager.getCurrentUserId());
                 JOptionPane.showMessageDialog(this, "Appointment booked! Token: " + token, "Success", JOptionPane.INFORMATION_MESSAGE);
                 loadData();
             } catch (Exception ex) {
@@ -115,9 +139,18 @@ public class AppointmentPanel extends JPanel {
     }
 
     private void cancelSelected() {
+        if (!RBACManager.requirePermission(Module.APPOINTMENTS, Permission.CANCEL_APPOINTMENT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select an appointment first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
+
+        // DOCTORs can only cancel their own
+        if (RBACManager.isDoctorRole() && !dao.belongsToDoctor(id, SessionManager.getCurrentDoctorId())) {
+            JOptionPane.showMessageDialog(this, "You can only cancel your own appointments.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         String reason = JOptionPane.showInputDialog(this, "Cancel reason:");
         if (reason != null && !reason.trim().isEmpty()) {
             dao.updateStatus(id, "CANCELLED", reason.trim());
@@ -129,6 +162,13 @@ public class AppointmentPanel extends JPanel {
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select an appointment first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
+
+        // DOCTORs can only update their own
+        if (RBACManager.isDoctorRole() && !dao.belongsToDoctor(id, SessionManager.getCurrentDoctorId())) {
+            JOptionPane.showMessageDialog(this, "You can only modify your own appointments.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
         dao.updateStatus(id, status, null);
         loadData();
     }

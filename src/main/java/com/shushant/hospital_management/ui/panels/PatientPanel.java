@@ -1,6 +1,10 @@
 package com.shushant.hospital_management.ui.panels;
 
 import com.shushant.hospital_management.dao.PatientDao;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.RBACManager.Permission;
+import com.shushant.hospital_management.util.SessionManager;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -31,13 +35,18 @@ public class PatientPanel extends JPanel {
         searchField.addActionListener(e -> search());
         JButton searchBtn = createBtn("🔍 Search", new Color(33, 150, 243));
         searchBtn.addActionListener(e -> search());
-        JButton addBtn = createBtn("➕ Add Patient", new Color(76, 175, 80));
-        addBtn.addActionListener(e -> showAddDialog());
+        actions.add(searchField); actions.add(searchBtn);
+
+        if (RBACManager.hasPermission(Module.PATIENTS, Permission.CREATE)) {
+            JButton addBtn = createBtn("➕ Add Patient", new Color(76, 175, 80));
+            addBtn.addActionListener(e -> showAddDialog());
+            actions.add(addBtn);
+        }
+
         JButton refreshBtn = createBtn("🔄", null);
         refreshBtn.addActionListener(e -> loadData());
+        actions.add(refreshBtn);
 
-        actions.add(searchField); actions.add(searchBtn);
-        actions.add(addBtn); actions.add(refreshBtn);
         topBar.add(title, BorderLayout.WEST);
         topBar.add(actions, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
@@ -50,18 +59,23 @@ public class PatientPanel extends JPanel {
         table.setRowHeight(28);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getColumnModel().getColumn(0).setMaxWidth(50);
-        JScrollPane sp = new JScrollPane(table);
-        add(sp, BorderLayout.CENTER);
+        add(new JScrollPane(table), BorderLayout.CENTER);
 
         // Bottom bar
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
-        JButton editBtn = createBtn("✏️ Edit", new Color(255, 152, 0));
-        editBtn.addActionListener(e -> showEditDialog());
-        JButton deleteBtn = createBtn("🗑️ Delete", new Color(244, 67, 54));
-        deleteBtn.addActionListener(e -> deleteSelected());
+        if (RBACManager.hasPermission(Module.PATIENTS, Permission.EDIT)) {
+            JButton editBtn = createBtn("✏️ Edit", new Color(255, 152, 0));
+            editBtn.addActionListener(e -> showEditDialog());
+            bottomBar.add(editBtn);
+        }
+        if (RBACManager.hasPermission(Module.PATIENTS, Permission.DELETE)) {
+            JButton deleteBtn = createBtn("🗑️ Delete", new Color(244, 67, 54));
+            deleteBtn.addActionListener(e -> deleteSelected());
+            bottomBar.add(deleteBtn);
+        }
         JButton viewBtn = createBtn("👁️ View Details", new Color(33, 150, 243));
         viewBtn.addActionListener(e -> viewDetails());
-        bottomBar.add(editBtn); bottomBar.add(deleteBtn); bottomBar.add(viewBtn);
+        bottomBar.add(viewBtn);
         add(bottomBar, BorderLayout.SOUTH);
 
         loadData();
@@ -80,6 +94,8 @@ public class PatientPanel extends JPanel {
     }
 
     private void showAddDialog() {
+        if (!RBACManager.requirePermission(Module.PATIENTS, Permission.CREATE, this)) return;
+
         JTextField fFirst = new JTextField(), fLast = new JTextField(), fEmail = new JTextField(),
                 fPhone = new JTextField(), fDob = new JTextField(), fAddress = new JTextField(),
                 fAllergies = new JTextField(), fInsurer = new JTextField(), fPolicy = new JTextField(),
@@ -104,19 +120,29 @@ public class PatientPanel extends JPanel {
                 return;
             }
             Date dob = null;
-            try { if (!fDob.getText().trim().isEmpty()) dob = Date.valueOf(fDob.getText().trim()); } catch (Exception ignored) {}
+            try {
+                if (!fDob.getText().trim().isEmpty()) {
+                    dob = Date.valueOf(fDob.getText().trim());
+                }
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid Date of Birth format. Use YYYY-MM-DD.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
             dao.create(dao.generatePatientUid(), fFirst.getText().trim(), fLast.getText().trim(),
                     fEmail.getText().trim(), fPhone.getText().trim(), dob,
                     (String) fGender.getSelectedItem(), (String) fBlood.getSelectedItem(),
                     fAddress.getText().trim(), (String) fType.getSelectedItem(),
                     fAllergies.getText().trim(), fInsurer.getText().trim(), fPolicy.getText().trim(),
-                    fEmergName.getText().trim(), fEmergPhone.getText().trim());
+                    fEmergName.getText().trim(), fEmergPhone.getText().trim(),
+                    SessionManager.getCurrentUserId());
             loadData();
         }
     }
 
     private void showEditDialog() {
+        if (!RBACManager.requirePermission(Module.PATIENTS, Permission.EDIT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a patient first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
@@ -148,7 +174,14 @@ public class PatientPanel extends JPanel {
         int result = JOptionPane.showConfirmDialog(this, fields, "Edit Patient", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {
             Date dob = null;
-            try { if (!fDob.getText().trim().isEmpty()) dob = Date.valueOf(fDob.getText().trim()); } catch (Exception ignored) {}
+            try {
+                if (!fDob.getText().trim().isEmpty()) {
+                    dob = Date.valueOf(fDob.getText().trim());
+                }
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid Date of Birth format. Use YYYY-MM-DD.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             dao.update(id, fFirst.getText().trim(), fLast.getText().trim(), fEmail.getText().trim(),
                     fPhone.getText().trim(), dob, (String) fGender.getSelectedItem(),
                     (String) fBlood.getSelectedItem(), fAddress.getText().trim(),
@@ -160,6 +193,8 @@ public class PatientPanel extends JPanel {
     }
 
     private void deleteSelected() {
+        if (!RBACManager.requirePermission(Module.PATIENTS, Permission.DELETE, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a patient first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);

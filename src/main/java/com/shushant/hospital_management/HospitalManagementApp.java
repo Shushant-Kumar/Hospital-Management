@@ -4,6 +4,7 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.shushant.hospital_management.db.DatabaseConnection;
 import com.shushant.hospital_management.db.DatabaseInitializer;
 import com.shushant.hospital_management.ui.LoginFrame;
+import io.github.cdimascio.dotenv.Dotenv;
 import javax.swing.*;
 
 public class HospitalManagementApp {
@@ -21,10 +22,22 @@ public class HospitalManagementApp {
             System.err.println("Failed to set FlatLaf theme: " + e.getMessage());
         }
 
+        // Load .env file
+        Dotenv dotenv = null;
+        try {
+            dotenv = Dotenv.configure().ignoreIfMissing().load();
+        } catch (Exception e) {
+            System.err.println("Could not load .env file: " + e.getMessage());
+        }
+
         // Database setup
-        String url = envOrDefault("DB_URL", "jdbc:postgresql://localhost:5432/hospital_management");
-        String user = envOrDefault("DB_USERNAME", "postgres");
-        String pass = envOrDefault("DB_PASSWORD", "Saraswati123");
+        String url = envOrDefault(dotenv, "DB_URL", "jdbc:postgresql://localhost:5432/hospital_management");
+        String user = envOrDefault(dotenv, "DB_USERNAME", "postgres");
+        String pass = envOrDefault(dotenv, "DB_PASSWORD", ""); // Do not hardcode passwords
+
+        if (pass.isEmpty()) {
+            System.err.println("WARNING: DB_PASSWORD is not set. Ensure it is provided via environment variables for production.");
+        }
 
         try {
             DatabaseConnection.init(url, user, pass);
@@ -43,10 +56,16 @@ public class HospitalManagementApp {
         Runtime.getRuntime().addShutdownHook(new Thread(DatabaseConnection::shutdown));
     }
 
-    private static String envOrDefault(String key, String defaultValue) {
+    private static String envOrDefault(Dotenv dotenv, String key, String defaultValue) {
+        // Try Dotenv first
+        if (dotenv != null) {
+            String val = dotenv.get(key);
+            if (val != null && !val.isBlank()) return val;
+        }
+        // Fallback to OS environment variables
         String val = System.getenv(key);
         if (val != null && !val.isBlank()) return val;
-        // Also check system properties
+        // Fallback to system properties
         val = System.getProperty(key);
         return (val != null && !val.isBlank()) ? val : defaultValue;
     }

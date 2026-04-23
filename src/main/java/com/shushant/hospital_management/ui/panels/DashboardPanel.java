@@ -1,6 +1,9 @@
 package com.shushant.hospital_management.ui.panels;
 
 import com.shushant.hospital_management.dao.*;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.SessionManager;
 import javax.swing.*;
 import java.awt.*;
 
@@ -17,28 +20,46 @@ public class DashboardPanel extends JPanel {
         JLabel title = new JLabel("Dashboard Overview");
         title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         title.setForeground(new Color(100, 180, 255));
-        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
-        add(title, BorderLayout.NORTH);
+        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
 
-        // Stats cards
-        JPanel cardGrid = new JPanel(new GridLayout(2, 4, 18, 18));
+        JLabel roleLabel = new JLabel("Logged in as: " + SessionManager.getCurrentFullName()
+                + " (" + SessionManager.getCurrentRole() + ")");
+        roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        roleLabel.setForeground(Color.LIGHT_GRAY);
+        roleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+
+        JPanel header = new JPanel();
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        header.setOpaque(false);
+        header.add(title);
+        header.add(roleLabel);
+        add(header, BorderLayout.NORTH);
+
+        // Stats cards — filtered by role
+        JPanel cardGrid = new JPanel(new GridLayout(0, 4, 18, 18));
         cardGrid.setOpaque(false);
 
-        PatientDao patientDao = new PatientDao();
-        DoctorDao doctorDao = new DoctorDao();
-        AppointmentDao appointmentDao = new AppointmentDao();
-        BillingDao billingDao = new BillingDao();
-        BedDao bedDao = new BedDao();
+        if (RBACManager.canView(Module.PATIENTS)) {
+            cardGrid.add(createCard("Total Patients", String.valueOf(new PatientDao().count()), new Color(76, 175, 80)));
+        }
+        if (RBACManager.canView(Module.DOCTORS)) {
+            cardGrid.add(createCard("Active Doctors", String.valueOf(new DoctorDao().count()), new Color(33, 150, 243)));
+        }
+        if (RBACManager.canView(Module.APPOINTMENTS)) {
+            cardGrid.add(createCard("Today's Appointments", String.valueOf(new AppointmentDao().countToday()), new Color(255, 152, 0)));
+        }
+        if (RBACManager.canView(Module.BEDS)) {
+            BedDao bedDao = new BedDao();
+            cardGrid.add(createCard("Available Beds", String.valueOf(bedDao.countAvailable()), new Color(156, 39, 176)));
+            cardGrid.add(createCard("Occupied Beds", String.valueOf(bedDao.countOccupied()), new Color(233, 30, 99)));
+        }
+        if (RBACManager.canView(Module.BILLING)) {
+            BillingDao billingDao = new BillingDao();
+            cardGrid.add(createCard("Total Revenue", "₹" + String.format("%,.2f", billingDao.getTotalRevenue()), new Color(0, 150, 136)));
+            cardGrid.add(createCard("Pending Payments", "₹" + String.format("%,.2f", billingDao.getPendingPayments()), new Color(244, 67, 54)));
+        }
 
-        cardGrid.add(createCard("Total Patients", String.valueOf(patientDao.count()), new Color(76, 175, 80)));
-        cardGrid.add(createCard("Active Doctors", String.valueOf(doctorDao.count()), new Color(33, 150, 243)));
-        cardGrid.add(createCard("Today's Appointments", String.valueOf(appointmentDao.countToday()), new Color(255, 152, 0)));
-        cardGrid.add(createCard("Available Beds", String.valueOf(bedDao.countAvailable()), new Color(156, 39, 176)));
-        cardGrid.add(createCard("Occupied Beds", String.valueOf(bedDao.countOccupied()), new Color(233, 30, 99)));
-        cardGrid.add(createCard("Total Revenue", "₹" + String.format("%,.2f", billingDao.getTotalRevenue()), new Color(0, 150, 136)));
-        cardGrid.add(createCard("Pending Payments", "₹" + String.format("%,.2f", billingDao.getPendingPayments()), new Color(244, 67, 54)));
         cardGrid.add(createRefreshCard());
-
         add(cardGrid, BorderLayout.CENTER);
     }
 

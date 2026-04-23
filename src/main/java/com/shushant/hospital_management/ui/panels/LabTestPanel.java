@@ -3,6 +3,10 @@ package com.shushant.hospital_management.ui.panels;
 import com.shushant.hospital_management.dao.DoctorDao;
 import com.shushant.hospital_management.dao.LabTestDao;
 import com.shushant.hospital_management.dao.PatientDao;
+import com.shushant.hospital_management.util.RBACManager;
+import com.shushant.hospital_management.util.RBACManager.Module;
+import com.shushant.hospital_management.util.RBACManager.Permission;
+import com.shushant.hospital_management.util.SessionManager;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -27,11 +31,14 @@ public class LabTestPanel extends JPanel {
         title.setFont(new Font("Segoe UI", Font.BOLD, 20));
         title.setForeground(new Color(100, 180, 255));
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        JButton orderBtn = btn("🔬 Order Test", new Color(76, 175, 80));
-        orderBtn.addActionListener(e -> showOrderDialog());
+        if (RBACManager.hasPermission(Module.LAB_TESTS, Permission.CREATE)) {
+            JButton orderBtn = btn("🔬 Order Test", new Color(76, 175, 80));
+            orderBtn.addActionListener(e -> showOrderDialog());
+            actions.add(orderBtn);
+        }
         JButton refreshBtn = btn("🔄", null);
         refreshBtn.addActionListener(e -> loadData());
-        actions.add(orderBtn); actions.add(refreshBtn);
+        actions.add(refreshBtn);
         topBar.add(title, BorderLayout.WEST);
         topBar.add(actions, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
@@ -45,15 +52,24 @@ public class LabTestPanel extends JPanel {
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
-        JButton collectBtn = btn("🧪 Collect Sample", new Color(255, 152, 0));
-        collectBtn.addActionListener(e -> updateStatus("SAMPLE_COLLECTED"));
-        JButton processBtn = btn("⚙️ Processing", new Color(33, 150, 243));
-        processBtn.addActionListener(e -> updateStatus("PROCESSING"));
-        JButton resultBtn = btn("📝 Enter Result", new Color(76, 175, 80));
-        resultBtn.addActionListener(e -> enterResult());
+        if (RBACManager.hasPermission(Module.LAB_TESTS, Permission.COLLECT_SAMPLE)) {
+            JButton collectBtn = btn("🧪 Collect Sample", new Color(255, 152, 0));
+            collectBtn.addActionListener(e -> updateStatus("SAMPLE_COLLECTED"));
+            bottomBar.add(collectBtn);
+        }
+        if (RBACManager.hasPermission(Module.LAB_TESTS, Permission.PROCESS_LAB)) {
+            JButton processBtn = btn("⚙️ Processing", new Color(33, 150, 243));
+            processBtn.addActionListener(e -> updateStatus("PROCESSING"));
+            bottomBar.add(processBtn);
+        }
+        if (RBACManager.hasPermission(Module.LAB_TESTS, Permission.ENTER_LAB_RESULT)) {
+            JButton resultBtn = btn("📝 Enter Result", new Color(76, 175, 80));
+            resultBtn.addActionListener(e -> enterResult());
+            bottomBar.add(resultBtn);
+        }
         JButton viewBtn = btn("👁️ View", new Color(156, 39, 176));
         viewBtn.addActionListener(e -> viewDetails());
-        bottomBar.add(collectBtn); bottomBar.add(processBtn); bottomBar.add(resultBtn); bottomBar.add(viewBtn);
+        bottomBar.add(viewBtn);
         add(bottomBar, BorderLayout.SOUTH);
 
         loadData();
@@ -65,6 +81,8 @@ public class LabTestPanel extends JPanel {
     }
 
     private void showOrderDialog() {
+        if (!RBACManager.requirePermission(Module.LAB_TESTS, Permission.CREATE, this)) return;
+
         List<Object[]> patients = patientDao.findAll();
         List<String[]> doctors = doctorDao.findAllForCombo();
         if (patients.isEmpty() || doctors.isEmpty()) {
@@ -83,7 +101,8 @@ public class LabTestPanel extends JPanel {
         if (JOptionPane.showConfirmDialog(this, fields, "Order Lab Test", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION) {
             int patientId = (int) patients.get(fPatient.getSelectedIndex())[0];
             int doctorId = Integer.parseInt(doctors.get(fDoctor.getSelectedIndex())[0]);
-            dao.create(patientId, doctorId, fTest.getText().trim(), fCode.getText().trim(), (String) fSample.getSelectedItem());
+            dao.create(patientId, doctorId, fTest.getText().trim(), fCode.getText().trim(),
+                    (String) fSample.getSelectedItem(), SessionManager.getCurrentUserId());
             loadData();
         }
     }
@@ -97,6 +116,8 @@ public class LabTestPanel extends JPanel {
     }
 
     private void enterResult() {
+        if (!RBACManager.requirePermission(Module.LAB_TESTS, Permission.ENTER_LAB_RESULT, this)) return;
+
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a test first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);

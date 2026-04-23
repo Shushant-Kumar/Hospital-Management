@@ -10,12 +10,13 @@ public class PatientDao {
     public int create(String patientUid, String firstName, String lastName, String email,
                       String phone, Date dob, String gender, String bloodGroup, String address,
                       String patientType, String allergies, String insuranceProvider,
-                      String insurancePolicy, String emergencyContactName, String emergencyContactPhone) {
+                      String insurancePolicy, String emergencyContactName, String emergencyContactPhone,
+                      int createdBy) {
         String sql = """
             INSERT INTO patients (patient_uid, first_name, last_name, email, phone, date_of_birth,
                 gender, blood_group, address, patient_type, allergies, insurance_provider,
-                insurance_policy, emergency_contact_name, emergency_contact_phone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                insurance_policy, emergency_contact_name, emergency_contact_phone, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
         """;
         try (Connection conn = DatabaseConnection.getConnection();
@@ -35,9 +36,10 @@ public class PatientDao {
             ps.setString(13, insurancePolicy);
             ps.setString(14, emergencyContactName);
             ps.setString(15, emergencyContactPhone);
+            ps.setInt(16, createdBy);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 
@@ -60,7 +62,7 @@ public class PatientDao {
             ps.setString(12, insurancePolicy); ps.setString(13, emergencyContactName);
             ps.setString(14, emergencyContactPhone); ps.setInt(15, id);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public void delete(int id) {
@@ -68,7 +70,7 @@ public class PatientDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE patients SET active = FALSE WHERE id = ?")) {
             ps.setInt(1, id);
             ps.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
     public List<Object[]> findAll() {
@@ -85,7 +87,7 @@ public class PatientDao {
                     rs.getString("patient_type"), rs.getTimestamp("created_at")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -107,7 +109,7 @@ public class PatientDao {
                     rs.getString("emergency_contact_name"), rs.getString("emergency_contact_phone")
                 };
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return null;
     }
 
@@ -133,7 +135,7 @@ public class PatientDao {
                     rs.getString("patient_type"), rs.getTimestamp("created_at")
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return list;
     }
 
@@ -146,7 +148,17 @@ public class PatientDao {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM patients WHERE active = TRUE")) {
             if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+        return 0;
+    }
+
+    public int findIdByUserId(int userId) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT id FROM patients WHERE user_id = ? AND active = TRUE")) {
+            ps.setInt(1, userId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return 0;
     }
 }
