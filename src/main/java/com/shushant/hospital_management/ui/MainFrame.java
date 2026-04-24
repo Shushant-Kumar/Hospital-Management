@@ -14,7 +14,7 @@ public class MainFrame extends JFrame {
     private final JPanel sidebarPanel = new JPanel();
 
     public MainFrame() {
-        setTitle("Hospital Management System — " + SessionManager.getCurrentFullName()
+        setTitle("Levaa — " + SessionManager.getCurrentFullName()
                 + " [" + SessionManager.getCurrentRole() + "]");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1280, 800);
@@ -31,8 +31,8 @@ public class MainFrame extends JFrame {
         sidebarPanel.setBorder(BorderFactory.createEmptyBorder(15, 0, 15, 0));
 
         // Logo area
-        JLabel logo = new JLabel("🏥 HMS", SwingConstants.CENTER);
-        logo.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        JLabel logo = new JLabel("🏥 Levaa", SwingConstants.CENTER);
+        logo.setFont(new Font("Segoe UI", Font.BOLD, 26));
         logo.setForeground(new Color(100, 180, 255));
         logo.setAlignmentX(Component.CENTER_ALIGNMENT);
         logo.setBorder(BorderFactory.createEmptyBorder(5, 0, 20, 0));

@@ -77,9 +77,9 @@ public final class RBACManager {
         Map.entry("DOCTOR", Map.ofEntries(
             Map.entry(Module.DASHBOARD,    Set.of(Permission.VIEW)),
             Map.entry(Module.PATIENTS,     Set.of(Permission.VIEW)),
-            Map.entry(Module.APPOINTMENTS, Set.of(Permission.VIEW, Permission.CREATE,
+            Map.entry(Module.APPOINTMENTS, Set.of(Permission.VIEW,
                     Permission.CHECKIN_APPOINTMENT, Permission.COMPLETE_APPOINTMENT, Permission.CANCEL_APPOINTMENT)),
-            Map.entry(Module.LAB_TESTS,    Set.of(Permission.VIEW, Permission.CREATE))
+            Map.entry(Module.LAB_TESTS,    Set.of(Permission.VIEW))
         )),
 
         Map.entry("NURSE", Map.ofEntries(

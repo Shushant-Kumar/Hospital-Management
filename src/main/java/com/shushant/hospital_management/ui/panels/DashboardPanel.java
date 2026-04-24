@@ -64,35 +64,81 @@ public class DashboardPanel extends JPanel {
     }
 
     private JPanel createCard(String label, String value, Color accent) {
-        JPanel card = new JPanel(new BorderLayout(10, 8));
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(accent.darker(), 1, true),
-                BorderFactory.createEmptyBorder(18, 18, 18, 18)));
-        card.setBackground(new Color(38, 42, 52));
+        return new GradientCard(label, value, accent);
+    }
 
-        JLabel valLabel = new JLabel(value);
-        valLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        valLabel.setForeground(accent);
+    private static class GradientCard extends JPanel {
+        private final Color accent;
+        private final Color bgColor = new Color(42, 46, 56);
+        
+        public GradientCard(String label, String value, Color accent) {
+            this.accent = accent;
+            setOpaque(false);
+            setLayout(new BorderLayout(10, 8));
+            setBorder(BorderFactory.createEmptyBorder(22, 22, 22, 22));
 
-        JLabel nameLabel = new JLabel(label);
-        nameLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        nameLabel.setForeground(Color.LIGHT_GRAY);
+            JLabel valLabel = new JLabel(value);
+            valLabel.setFont(new Font("Segoe UI", Font.BOLD, 36));
+            valLabel.setForeground(Color.WHITE);
 
-        card.add(valLabel, BorderLayout.CENTER);
-        card.add(nameLabel, BorderLayout.SOUTH);
-        return card;
+            JLabel nameLabel = new JLabel(label);
+            nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            nameLabel.setForeground(new Color(200, 200, 210));
+
+            add(valLabel, BorderLayout.CENTER);
+            add(nameLabel, BorderLayout.SOUTH);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            // Background with subtle gradient
+            GradientPaint gp = new GradientPaint(0, 0, bgColor, 0, getHeight(), bgColor.darker());
+            g2.setPaint(gp);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+            
+            // Accent line at the top
+            g2.setColor(accent);
+            g2.fillRoundRect(0, 0, getWidth(), 6, 16, 16);
+            
+            // Clean up bottom corners of the accent line to make it a flat top border if needed, 
+            // but a rounded top bar is fine.
+            g2.fillRect(0, 3, getWidth(), 3);
+            
+            // Border
+            g2.setColor(new Color(60, 65, 75));
+            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+            
+            g2.dispose();
+        }
     }
 
     private JPanel createRefreshCard() {
-        JPanel card = new JPanel(new GridBagLayout());
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(70, 70, 70), 1, true),
-                BorderFactory.createEmptyBorder(18, 18, 18, 18)));
-        card.setBackground(new Color(38, 42, 52));
+        JPanel card = new JPanel(new GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(42, 46, 56));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.setColor(new Color(60, 65, 75));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setBorder(BorderFactory.createEmptyBorder(22, 22, 22, 22));
 
         JButton refreshBtn = new JButton("🔄 Refresh");
-        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        refreshBtn.setForeground(new Color(100, 180, 255));
+        refreshBtn.setBackground(new Color(42, 46, 56));
         refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
         refreshBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         refreshBtn.addActionListener(e -> {
             removeAll();

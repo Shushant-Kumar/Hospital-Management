@@ -23,7 +23,7 @@ public class SignUpFrame extends JFrame {
     private final PatientDao patientDao = new PatientDao();
 
     public SignUpFrame() {
-        setTitle("Hospital Management System — Patient Sign Up");
+        setTitle("Levaa — Patient Sign Up");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(500, 600);
         setLocationRelativeTo(null);
@@ -82,6 +82,7 @@ public class SignUpFrame extends JFrame {
         signUpButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
         signUpButton.setBackground(new Color(76, 175, 80));
         signUpButton.setForeground(Color.WHITE);
+        signUpButton.putClientProperty("JButton.buttonType", "roundRect");
         signUpButton.setFocusPainted(false);
         signUpButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         gbc.gridy = row++; gbc.insets = new Insets(10, 6, 6, 6);
@@ -92,6 +93,7 @@ public class SignUpFrame extends JFrame {
         backButton.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         backButton.setForeground(new Color(100, 180, 255));
         backButton.setBackground(new Color(45, 48, 55));
+        backButton.putClientProperty("JButton.buttonType", "roundRect");
         backButton.setFocusPainted(false);
         backButton.setBorderPainted(false);
         backButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));

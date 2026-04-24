@@ -18,6 +18,16 @@ public class HospitalManagementApp {
             UIManager.put("TextComponent.arc", 8);
             UIManager.put("ScrollBar.thumbArc", 999);
             UIManager.put("ScrollBar.thumbInsets", new java.awt.Insets(2, 2, 2, 2));
+
+            // Premium Table Aesthetics
+            UIManager.put("Table.alternateRowColor", new java.awt.Color(45, 45, 50));
+            UIManager.put("Table.selectionBackground", new java.awt.Color(50, 100, 180));
+            UIManager.put("Table.selectionForeground", java.awt.Color.WHITE);
+            UIManager.put("TableHeader.background", new java.awt.Color(35, 35, 40));
+            UIManager.put("TableHeader.font", new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 13));
+            UIManager.put("Table.rowHeight", 32);
+            UIManager.put("Table.showHorizontalLines", true);
+            UIManager.put("Table.showVerticalLines", false);
         } catch (Exception e) {
             System.err.println("Failed to set FlatLaf theme: " + e.getMessage());
         }

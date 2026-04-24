@@ -10,7 +10,7 @@ public class LoginFrame extends JFrame {
     private final JPasswordField passwordField = new JPasswordField(20);
 
     public LoginFrame() {
-        setTitle("Hospital Management System — Login");
+        setTitle("Levaa — Login");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(480, 380);
         setLocationRelativeTo(null);
@@ -26,8 +26,8 @@ public class LoginFrame extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Title
-        JLabel titleLabel = new JLabel("🏥 Hospital Management System", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        JLabel titleLabel = new JLabel("🏥 Levaa", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 26));
         titleLabel.setForeground(new Color(100, 180, 255));
         gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
         mainPanel.add(titleLabel, gbc);
@@ -60,28 +60,23 @@ public class LoginFrame extends JFrame {
         loginButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
         loginButton.setBackground(new Color(60, 130, 230));
         loginButton.setForeground(Color.WHITE);
+        loginButton.putClientProperty("JButton.buttonType", "roundRect");
         loginButton.setFocusPainted(false);
         loginButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         gbc.gridy = 5; gbc.gridx = 0; gbc.gridwidth = 2;
         gbc.insets = new Insets(20, 6, 6, 6);
         mainPanel.add(loginButton, gbc);
 
-        // Default credentials hint
-        JLabel hintLabel = new JLabel("Default: admin / admin123", SwingConstants.CENTER);
-        hintLabel.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        hintLabel.setForeground(new Color(120, 120, 120));
-        gbc.gridy = 6; gbc.insets = new Insets(6, 6, 6, 6);
-        mainPanel.add(hintLabel, gbc);
-
         // Sign Up Button
         JButton signUpButton = new JButton("New Patient? Sign Up");
         signUpButton.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         signUpButton.setForeground(new Color(100, 180, 255));
         signUpButton.setBackground(new Color(45, 48, 55));
+        signUpButton.putClientProperty("JButton.buttonType", "roundRect");
         signUpButton.setFocusPainted(false);
         signUpButton.setBorderPainted(false);
         signUpButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        gbc.gridy = 7;
+        gbc.gridy = 6;
         mainPanel.add(signUpButton, gbc);
 
         // Sign Up action

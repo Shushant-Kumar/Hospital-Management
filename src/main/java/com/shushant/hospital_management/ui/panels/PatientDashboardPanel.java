@@ -264,43 +264,87 @@ public class PatientDashboardPanel extends JPanel {
     // ── Profile Tab ──────────────────────────────────────────────────────────
 
     private JPanel buildProfileTab() {
-        JPanel panel = new JPanel(new BorderLayout(0, 10));
+        JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         Object[] data = patientDao.findById(patientId);
         if (data == null) {
-            panel.add(new JLabel("Unable to load profile."), BorderLayout.CENTER);
+            panel.add(new JLabel("Unable to load profile."));
             return panel;
         }
 
-        JPanel info = new JPanel(new GridLayout(0, 2, 10, 8));
-        info.setOpaque(false);
+        JPanel card = new JPanel(new GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(42, 46, 56));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 24, 24);
+                g2.setColor(new Color(60, 65, 75));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 24, 24);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setBorder(BorderFactory.createEmptyBorder(30, 40, 30, 40));
 
-        addProfileRow(info, "Patient UID", data[1]);
-        addProfileRow(info, "Name", data[2] + " " + data[3]);
-        addProfileRow(info, "Email", data[4]);
-        addProfileRow(info, "Phone", data[5]);
-        addProfileRow(info, "Date of Birth", data[6]);
-        addProfileRow(info, "Gender", data[7]);
-        addProfileRow(info, "Blood Group", data[8]);
-        addProfileRow(info, "Address", data[9]);
-        addProfileRow(info, "Patient Type", data[10]);
-        addProfileRow(info, "Allergies", data[11]);
-        addProfileRow(info, "Insurance", data[12] + " (" + data[13] + ")");
-        addProfileRow(info, "Emergency Contact", data[14] + " (" + data[15] + ")");
+        GridBagConstraints c = new GridBagConstraints();
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.insets = new Insets(8, 20, 8, 20);
 
-        panel.add(info, BorderLayout.NORTH);
+        // Header
+        JLabel nameLbl = new JLabel((String) data[2] + " " + data[3], SwingConstants.CENTER);
+        nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        nameLbl.setForeground(Color.WHITE);
+        
+        JLabel uidLbl = new JLabel((String) data[1], SwingConstants.CENTER);
+        uidLbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        uidLbl.setForeground(new Color(100, 180, 255));
+
+        c.gridx = 0; c.gridy = 0; c.gridwidth = 2;
+        card.add(nameLbl, c);
+        c.gridy = 1; c.insets = new Insets(0, 20, 20, 20);
+        card.add(uidLbl, c);
+
+        // Data fields
+        c.gridwidth = 1; c.insets = new Insets(10, 20, 10, 20);
+        int row = 2;
+
+        addProfileRow(card, c, "Email", data[4], row++);
+        addProfileRow(card, c, "Phone", data[5], row++);
+        addProfileRow(card, c, "Date of Birth", data[6], row++);
+        addProfileRow(card, c, "Gender", data[7], row++);
+        addProfileRow(card, c, "Blood Group", data[8], row++);
+        addProfileRow(card, c, "Address", data[9], row++);
+        addProfileRow(card, c, "Patient Type", data[10], row++);
+        addProfileRow(card, c, "Allergies", data[11], row++);
+        addProfileRow(card, c, "Insurance", data[12] + " (" + data[13] + ")", row++);
+        addProfileRow(card, c, "Emergency", data[14] + " (" + data[15] + ")", row++);
+
+        GridBagConstraints wrapperGbc = new GridBagConstraints();
+        wrapperGbc.anchor = GridBagConstraints.NORTH;
+        wrapperGbc.weighty = 1.0;
+        panel.add(card, wrapperGbc);
+
         return panel;
     }
 
-    private void addProfileRow(JPanel panel, String label, Object value) {
-        JLabel lbl = new JLabel(label + ":");
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+    private void addProfileRow(JPanel panel, GridBagConstraints c, String label, Object value, int row) {
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lbl.setForeground(new Color(150, 180, 220));
+        
         JLabel val = new JLabel(value != null ? value.toString() : "—");
-        val.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        panel.add(lbl);
-        panel.add(val);
+        val.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        val.setForeground(Color.WHITE);
+        
+        c.gridy = row;
+        c.gridx = 0; c.anchor = GridBagConstraints.EAST;
+        panel.add(lbl, c);
+        
+        c.gridx = 1; c.anchor = GridBagConstraints.WEST;
+        panel.add(val, c);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
