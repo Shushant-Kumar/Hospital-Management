@@ -21,6 +21,17 @@ public class UserDao {
         return -1;
     }
 
+    public boolean exists(String username, String email) {
+        String sql = "SELECT 1 FROM users WHERE username = ? OR email = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, username);
+            ps.setString(2, email);
+            ResultSet rs = ps.executeQuery();
+            return rs.next();
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+    }
+
     public List<Object[]> findAll() {
         List<Object[]> list = new ArrayList<>();
         try (Connection conn = DatabaseConnection.getConnection();

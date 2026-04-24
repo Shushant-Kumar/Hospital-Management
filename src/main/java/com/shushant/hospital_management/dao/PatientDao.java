@@ -143,6 +143,15 @@ public class PatientDao {
         return "PAT-" + (100000 + (int)(Math.random() * 900000));
     }
 
+    public void linkUser(int patientId, int userId) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("UPDATE patients SET user_id = ? WHERE id = ?")) {
+            ps.setInt(1, userId);
+            ps.setInt(2, patientId);
+            ps.executeUpdate();
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+    }
+
     public int count() {
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();

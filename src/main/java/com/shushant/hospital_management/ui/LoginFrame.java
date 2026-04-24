@@ -73,6 +73,23 @@ public class LoginFrame extends JFrame {
         gbc.gridy = 6; gbc.insets = new Insets(6, 6, 6, 6);
         mainPanel.add(hintLabel, gbc);
 
+        // Sign Up Button
+        JButton signUpButton = new JButton("New Patient? Sign Up");
+        signUpButton.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        signUpButton.setForeground(new Color(100, 180, 255));
+        signUpButton.setBackground(new Color(45, 48, 55));
+        signUpButton.setFocusPainted(false);
+        signUpButton.setBorderPainted(false);
+        signUpButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        gbc.gridy = 7;
+        mainPanel.add(signUpButton, gbc);
+
+        // Sign Up action
+        signUpButton.addActionListener(e -> {
+            dispose();
+            SwingUtilities.invokeLater(() -> new SignUpFrame().setVisible(true));
+        });
+
         add(mainPanel);
 
         // Actions
