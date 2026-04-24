@@ -1,6 +1,6 @@
-# 🏥 Hospital Management System
+# 🏥 Levaa — Hospital Management System
 
-A production-grade **Java Swing Desktop Application** for managing hospital operations — built with **FlatLaf** dark theme, **PostgreSQL** (via Docker), **HikariCP** connection pooling, and **BCrypt** security.
+A production-grade **Java Swing Desktop Application** for managing hospital operations — built with **FlatLaf** dark theme, custom **Gradient UI Components**, **PostgreSQL** (via Docker), **HikariCP** connection pooling, and comprehensive **Role-Based Access Control (RBAC)** security.
 
 ---
 
@@ -62,6 +62,16 @@ Use any of these credentials:
 > **Note:** New patients can also self-register using the **"New Patient? Sign Up"** button on the Login screen!
 
 ---
+
+## 🛡️ Security & Access Control (RBAC)
+
+Levaa features a hardened security architecture:
+- **Strict Role-Based Access Control (RBAC):** Users only see panels and buttons they have permissions for. For example, Doctors cannot randomly book appointments for patients, keeping the UI clean.
+- **Backend Security Guard:** Ownership validation at the DAO level. A logged-in doctor can *only* access patients assigned to them and appointments they own. Patients can *only* see their own data.
+- **Audit Logging:** All critical actions (Updates, Deletes, Password Resets) are logged to an `audit_logs` database table.
+
+---
+
 
 ## 🧩 Modules
 
@@ -130,9 +140,11 @@ hospital-management/
     │   ├── LoginFrame.java         ← Login screen
     │   ├── SignUpFrame.java        ← Patient Sign Up Portal
     │   ├── MainFrame.java          ← Sidebar + panel switching
-    │   └── panels/                 ← Module panels (including PatientDashboardPanel)
+    │   └── panels/                 ← Module panels (including Gradient Dashboard)
     └── util/
-        └── SessionManager.java     ← BCrypt auth + roles
+        ├── SessionManager.java     ← BCrypt auth + session state
+        ├── RBACManager.java        ← Role permissions matrix
+        └── SecurityGuard.java      ← Data ownership backend validation
 ```
 
 ---
