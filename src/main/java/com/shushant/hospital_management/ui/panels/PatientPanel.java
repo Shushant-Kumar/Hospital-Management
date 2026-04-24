@@ -5,6 +5,7 @@ import com.shushant.hospital_management.util.RBACManager;
 import com.shushant.hospital_management.util.RBACManager.Module;
 import com.shushant.hospital_management.util.RBACManager.Permission;
 import com.shushant.hospital_management.util.SessionManager;
+import com.shushant.hospital_management.util.SecurityGuard;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -83,13 +84,24 @@ public class PatientPanel extends JPanel {
 
     private void loadData() {
         tableModel.setRowCount(0);
-        for (Object[] row : dao.findAll()) tableModel.addRow(row);
+        List<Object[]> data;
+        if (RBACManager.isDoctorRole()) {
+            data = dao.findByDoctorId(SessionManager.getCurrentDoctorId());
+        } else {
+            data = dao.findAll();
+        }
+        for (Object[] row : data) tableModel.addRow(row);
     }
 
     private void search() {
         String q = searchField.getText().trim();
         tableModel.setRowCount(0);
-        List<Object[]> results = q.isEmpty() ? dao.findAll() : dao.search(q);
+        List<Object[]> results;
+        if (q.isEmpty()) {
+            results = RBACManager.isDoctorRole() ? dao.findByDoctorId(SessionManager.getCurrentDoctorId()) : dao.findAll();
+        } else {
+            results = RBACManager.isDoctorRole() ? dao.search(q, SessionManager.getCurrentDoctorId()) : dao.search(q);
+        }
         for (Object[] row : results) tableModel.addRow(row);
     }
 
@@ -146,6 +158,10 @@ public class PatientPanel extends JPanel {
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a patient first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
+        try { SecurityGuard.verifyPatientAssignment(id); } catch (SecurityException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         Object[] data = dao.findById(id);
         if (data == null) return;
 
@@ -206,6 +222,10 @@ public class PatientPanel extends JPanel {
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a patient first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
+        try { SecurityGuard.verifyPatientAssignment(id); } catch (SecurityException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         Object[] d = dao.findById(id);
         if (d == null) return;
         String info = """

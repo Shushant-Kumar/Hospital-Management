@@ -29,6 +29,7 @@ public class AppointmentDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE appointments SET status=?, cancel_reason=? WHERE id=?")) {
             ps.setString(1, status); ps.setString(2, cancelReason); ps.setInt(3, id);
             ps.executeUpdate();
+            com.shushant.hospital_management.util.AuditLogger.log("UPDATE_STATUS", "appointments", id, "Status: " + status);
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 

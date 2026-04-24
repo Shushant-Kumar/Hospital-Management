@@ -57,6 +57,9 @@ Use any of these credentials:
 | `pharma1` | `pharma123` | Pharmacist |
 | `lab1` | `lab123` | Lab Technician |
 | `reception1` | `recep123` | Receptionist |
+| `patient1` | `patient123` | Patient |
+
+> **Note:** New patients can also self-register using the **"New Patient? Sign Up"** button on the Login screen!
 
 ---
 
@@ -73,6 +76,7 @@ Use any of these credentials:
 | **🔬 Lab Tests** | Order → Collect Sample → Process → Enter Result workflow |
 | **🛏️ Beds & Wards** | Add beds, assign/release patients, ward occupancy tracking |
 | **👥 Users** | Create staff accounts, toggle active, reset passwords (Admin only) |
+| **🏠 My Dashboard** | Personal patient dashboard for appointments, test results, etc. |
 
 ---
 
@@ -124,8 +128,9 @@ hospital-management/
     │   ├── PharmacyDao, LabTestDao, BedDao, UserDao
     ├── ui/
     │   ├── LoginFrame.java         ← Login screen
+    │   ├── SignUpFrame.java        ← Patient Sign Up Portal
     │   ├── MainFrame.java          ← Sidebar + panel switching
-    │   └── panels/                 ← 9 module panels
+    │   └── panels/                 ← Module panels (including PatientDashboardPanel)
     └── util/
         └── SessionManager.java     ← BCrypt auth + roles
 ```

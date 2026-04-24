@@ -7,6 +7,7 @@ import com.shushant.hospital_management.util.RBACManager;
 import com.shushant.hospital_management.util.RBACManager.Module;
 import com.shushant.hospital_management.util.RBACManager.Permission;
 import com.shushant.hospital_management.util.SessionManager;
+import com.shushant.hospital_management.util.SecurityGuard;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -145,9 +146,8 @@ public class AppointmentPanel extends JPanel {
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select an appointment first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
 
-        // DOCTORs can only cancel their own
-        if (RBACManager.isDoctorRole() && !dao.belongsToDoctor(id, SessionManager.getCurrentDoctorId())) {
-            JOptionPane.showMessageDialog(this, "You can only cancel your own appointments.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+        try { SecurityGuard.verifyAppointmentOwnership(id); } catch (SecurityException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -163,9 +163,8 @@ public class AppointmentPanel extends JPanel {
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select an appointment first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
 
-        // DOCTORs can only update their own
-        if (RBACManager.isDoctorRole() && !dao.belongsToDoctor(id, SessionManager.getCurrentDoctorId())) {
-            JOptionPane.showMessageDialog(this, "You can only modify your own appointments.", "Access Denied", JOptionPane.ERROR_MESSAGE);
+        try { SecurityGuard.verifyAppointmentOwnership(id); } catch (SecurityException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
             return;
         }
 

@@ -231,6 +231,18 @@ public final class DatabaseInitializer {
                         )
                     """);
 
+            stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS audit_logs (
+                            id SERIAL PRIMARY KEY,
+                            action VARCHAR(50) NOT NULL,
+                            entity_name VARCHAR(50) NOT NULL,
+                            entity_id INT NOT NULL,
+                            user_id INT REFERENCES users(id),
+                            details TEXT,
+                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """);
+
             // Seed default admin if not exists
             try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM users WHERE username = 'admin'")) {
                 rs.next();

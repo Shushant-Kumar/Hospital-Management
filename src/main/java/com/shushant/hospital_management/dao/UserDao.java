@@ -53,6 +53,7 @@ public class UserDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE users SET active = ? WHERE id = ?")) {
             ps.setBoolean(1, active); ps.setInt(2, id);
             ps.executeUpdate();
+            com.shushant.hospital_management.util.AuditLogger.log("UPDATE_STATUS", "users", id, "User status set to active: " + active);
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
@@ -62,6 +63,7 @@ public class UserDao {
             ps.setString(1, BCrypt.hashpw(newPassword, BCrypt.gensalt()));
             ps.setInt(2, id);
             ps.executeUpdate();
+            com.shushant.hospital_management.util.AuditLogger.log("RESET_PASSWORD", "users", id, "Password reset by admin");
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 }

@@ -7,6 +7,7 @@ import com.shushant.hospital_management.util.RBACManager;
 import com.shushant.hospital_management.util.RBACManager.Module;
 import com.shushant.hospital_management.util.RBACManager.Permission;
 import com.shushant.hospital_management.util.SessionManager;
+import com.shushant.hospital_management.util.SecurityGuard;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -77,7 +78,13 @@ public class LabTestPanel extends JPanel {
 
     private void loadData() {
         tableModel.setRowCount(0);
-        for (Object[] row : dao.findAll()) tableModel.addRow(row);
+        List<Object[]> data;
+        if (RBACManager.isDoctorRole()) {
+            data = dao.findByDoctorId(SessionManager.getCurrentDoctorId());
+        } else {
+            data = dao.findAll();
+        }
+        for (Object[] row : data) tableModel.addRow(row);
     }
 
     private void showOrderDialog() {
@@ -133,6 +140,10 @@ public class LabTestPanel extends JPanel {
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a test first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
+        try { SecurityGuard.verifyLabTestOwnership(id); } catch (SecurityException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         Object[] d = dao.findById(id);
         if (d == null) return;
         String info = """

@@ -62,6 +62,7 @@ public class PatientDao {
             ps.setString(12, insurancePolicy); ps.setString(13, emergencyContactName);
             ps.setString(14, emergencyContactPhone); ps.setInt(15, id);
             ps.executeUpdate();
+            com.shushant.hospital_management.util.AuditLogger.log("UPDATE", "patients", id, "Patient details updated");
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
@@ -70,6 +71,7 @@ public class PatientDao {
              PreparedStatement ps = conn.prepareStatement("UPDATE patients SET active = FALSE WHERE id = ?")) {
             ps.setInt(1, id);
             ps.executeUpdate();
+            com.shushant.hospital_management.util.AuditLogger.log("DELETE", "patients", id, "Patient marked as inactive");
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
@@ -79,6 +81,31 @@ public class PatientDao {
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                list.add(new Object[]{
+                    rs.getInt("id"), rs.getString("patient_uid"),
+                    rs.getString("first_name"), rs.getString("last_name"),
+                    rs.getString("phone"), rs.getString("gender"),
+                    rs.getString("patient_type"), rs.getTimestamp("created_at")
+                });
+            }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+        return list;
+    }
+
+    public List<Object[]> findByDoctorId(int doctorId) {
+        List<Object[]> list = new ArrayList<>();
+        String sql = """
+            SELECT DISTINCT p.id, p.patient_uid, p.first_name, p.last_name, p.phone, p.gender, p.patient_type, p.created_at
+            FROM patients p
+            JOIN appointments a ON p.id = a.patient_id
+            WHERE a.doctor_id = ? AND p.active = TRUE
+            ORDER BY p.id DESC
+        """;
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, doctorId);
+            ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 list.add(new Object[]{
                     rs.getInt("id"), rs.getString("patient_uid"),
@@ -139,8 +166,47 @@ public class PatientDao {
         return list;
     }
 
+    public List<Object[]> search(String query, int doctorId) {
+        List<Object[]> list = new ArrayList<>();
+        String sql = """
+            SELECT DISTINCT p.id, p.patient_uid, p.first_name, p.last_name, p.phone, p.gender, p.patient_type, p.created_at
+            FROM patients p
+            JOIN appointments a ON p.id = a.patient_id
+            WHERE a.doctor_id = ? AND p.active = TRUE AND (
+                LOWER(p.first_name) LIKE ? OR LOWER(p.last_name) LIKE ? 
+                OR LOWER(p.patient_uid) LIKE ? OR p.phone LIKE ?
+            ) ORDER BY p.id DESC
+        """;
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            String q = "%" + query.toLowerCase() + "%";
+            ps.setInt(1, doctorId);
+            ps.setString(2, q); ps.setString(3, q); ps.setString(4, q); ps.setString(5, q);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                list.add(new Object[]{
+                    rs.getInt("id"), rs.getString("patient_uid"),
+                    rs.getString("first_name"), rs.getString("last_name"),
+                    rs.getString("phone"), rs.getString("gender"),
+                    rs.getString("patient_type"), rs.getTimestamp("created_at")
+                });
+            }
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+        return list;
+    }
+
     public String generatePatientUid() {
         return "PAT-" + (100000 + (int)(Math.random() * 900000));
+    }
+
+    public boolean isAssignedToDoctor(int patientId, int doctorId) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND doctor_id = ?")) {
+            ps.setInt(1, patientId); ps.setInt(2, doctorId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) return rs.getInt(1) > 0;
+        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+        return false;
     }
 
     public void linkUser(int patientId, int userId) {
