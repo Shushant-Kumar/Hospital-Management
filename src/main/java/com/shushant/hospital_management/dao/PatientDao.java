@@ -1,6 +1,8 @@
 package com.shushant.hospital_management.dao;
 
 import com.shushant.hospital_management.db.DatabaseConnection;
+import com.shushant.hospital_management.util.AuditLogger;
+import com.shushant.hospital_management.util.ValidationUtils;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +14,11 @@ public class PatientDao {
                       String patientType, String allergies, String insuranceProvider,
                       String insurancePolicy, String emergencyContactName, String emergencyContactPhone,
                       int createdBy) {
+        ValidationUtils.requireNonEmpty(patientUid, "Patient UID");
+        ValidationUtils.requireNonEmpty(firstName, "First Name");
+        ValidationUtils.requireNonEmpty(lastName, "Last Name");
+        ValidationUtils.requireNonEmpty(phone, "Phone");
+
         String sql = """
             INSERT INTO patients (patient_uid, first_name, last_name, email, phone, date_of_birth,
                 gender, blood_group, address, patient_type, allergies, insurance_provider,
@@ -38,21 +45,44 @@ public class PatientDao {
             ps.setString(15, emergencyContactPhone);
             ps.setInt(16, createdBy);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return rs.getInt(1);
+            if (rs.next()) {
+                int id = rs.getInt(1);
+                AuditLogger.log("CREATE", "patients", id, "Patient " + firstName + " " + lastName + " (" + patientUid + ")");
+                return id;
+            }
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 
+    /** Optimistic-locking update — checks updated_at to detect concurrent modifications. */
     public void update(int id, String firstName, String lastName, String email, String phone,
                        Date dob, String gender, String bloodGroup, String address,
                        String patientType, String allergies, String insuranceProvider,
-                       String insurancePolicy, String emergencyContactName, String emergencyContactPhone) {
-        String sql = """
-            UPDATE patients SET first_name=?, last_name=?, email=?, phone=?, date_of_birth=?,
-                gender=?, blood_group=?, address=?, patient_type=?, allergies=?,
-                insurance_provider=?, insurance_policy=?, emergency_contact_name=?, emergency_contact_phone=?
-            WHERE id=?
-        """;
+                       String insurancePolicy, String emergencyContactName, String emergencyContactPhone,
+                       Timestamp expectedUpdatedAt) {
+        ValidationUtils.requireNonEmpty(firstName, "First Name");
+        ValidationUtils.requireNonEmpty(lastName, "Last Name");
+        ValidationUtils.requireNonEmpty(phone, "Phone");
+
+        String sql;
+        boolean useOptimisticLock = (expectedUpdatedAt != null);
+        if (useOptimisticLock) {
+            sql = """
+                UPDATE patients SET first_name=?, last_name=?, email=?, phone=?, date_of_birth=?,
+                    gender=?, blood_group=?, address=?, patient_type=?, allergies=?,
+                    insurance_provider=?, insurance_policy=?, emergency_contact_name=?, emergency_contact_phone=?,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=? AND updated_at=?
+            """;
+        } else {
+            sql = """
+                UPDATE patients SET first_name=?, last_name=?, email=?, phone=?, date_of_birth=?,
+                    gender=?, blood_group=?, address=?, patient_type=?, allergies=?,
+                    insurance_provider=?, insurance_policy=?, emergency_contact_name=?, emergency_contact_phone=?,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+            """;
+        }
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, firstName); ps.setString(2, lastName); ps.setString(3, email);
@@ -61,18 +91,78 @@ public class PatientDao {
             ps.setString(10, allergies); ps.setString(11, insuranceProvider);
             ps.setString(12, insurancePolicy); ps.setString(13, emergencyContactName);
             ps.setString(14, emergencyContactPhone); ps.setInt(15, id);
-            ps.executeUpdate();
-            com.shushant.hospital_management.util.AuditLogger.log("UPDATE", "patients", id, "Patient details updated");
+            if (useOptimisticLock) ps.setTimestamp(16, expectedUpdatedAt);
+
+            int rows = ps.executeUpdate();
+            if (useOptimisticLock && rows == 0) {
+                throw new RuntimeException("Concurrent modification detected — patient record was modified by another user. Please refresh and try again.");
+            }
+            AuditLogger.log("UPDATE", "patients", id, "Patient details updated");
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
+    /** Backward-compatible update without optimistic locking */
+    public void update(int id, String firstName, String lastName, String email, String phone,
+                       Date dob, String gender, String bloodGroup, String address,
+                       String patientType, String allergies, String insuranceProvider,
+                       String insurancePolicy, String emergencyContactName, String emergencyContactPhone) {
+        update(id, firstName, lastName, email, phone, dob, gender, bloodGroup, address,
+               patientType, allergies, insuranceProvider, insurancePolicy,
+               emergencyContactName, emergencyContactPhone, null);
+    }
+
+    /**
+     * Cascading soft delete — deactivates patient AND:
+     * 1. Releases any occupied bed
+     * 2. Cancels non-completed appointments
+     * 3. Cancels non-completed lab tests
+     */
     public void delete(int id) {
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE patients SET active = FALSE WHERE id = ?")) {
-            ps.setInt(1, id);
-            ps.executeUpdate();
-            com.shushant.hospital_management.util.AuditLogger.log("DELETE", "patients", id, "Patient marked as inactive");
-        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Soft-delete the patient
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE patients SET active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?")) {
+                ps.setInt(1, id);
+                ps.executeUpdate();
+            }
+
+            // 2. Release any occupied bed
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE beds SET patient_id = NULL, status = 'AVAILABLE' WHERE patient_id = ? AND status = 'OCCUPIED'")) {
+                ps.setInt(1, id);
+                int released = ps.executeUpdate();
+                if (released > 0) AuditLogger.log("CASCADE_RELEASE_BED", "beds", id, released + " bed(s) released for deactivated patient");
+            }
+
+            // 3. Cancel non-completed appointments
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE appointments SET status = 'CANCELLED', cancel_reason = 'Patient deactivated' WHERE patient_id = ? AND status IN ('BOOKED','CHECKED_IN','IN_PROGRESS')")) {
+                ps.setInt(1, id);
+                int cancelled = ps.executeUpdate();
+                if (cancelled > 0) AuditLogger.log("CASCADE_CANCEL", "appointments", id, cancelled + " appointment(s) cancelled for deactivated patient");
+            }
+
+            // 4. Cancel non-completed lab tests
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE lab_tests SET status = 'CANCELLED' WHERE patient_id = ? AND status IN ('BOOKED','SAMPLE_COLLECTED','PROCESSING')")) {
+                ps.setInt(1, id);
+                int cancelled = ps.executeUpdate();
+                if (cancelled > 0) AuditLogger.log("CASCADE_CANCEL", "lab_tests", id, cancelled + " lab test(s) cancelled for deactivated patient");
+            }
+
+            conn.commit();
+            AuditLogger.log("DELETE", "patients", id, "Patient deactivated with cascading cleanup");
+
+        } catch (SQLException e) {
+            if (conn != null) { try { conn.rollback(); } catch (SQLException ignored) {} }
+            throw new RuntimeException("Database error during patient deletion", e);
+        } finally {
+            if (conn != null) { try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {} }
+        }
     }
 
     public List<Object[]> findAll() {
@@ -195,8 +285,14 @@ public class PatientDao {
         return list;
     }
 
+    /** Sequence-based, collision-free patient UID generation. */
     public String generatePatientUid() {
-        return "PAT-" + (100000 + (int)(Math.random() * 900000));
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT nextval('patient_uid_seq')")) {
+            if (rs.next()) return "PAT-" + rs.getLong(1);
+        } catch (SQLException e) { throw new RuntimeException("Database error generating patient UID", e); }
+        return "PAT-" + System.currentTimeMillis(); // fallback
     }
 
     public boolean isAssignedToDoctor(int patientId, int doctorId) {
@@ -211,7 +307,7 @@ public class PatientDao {
 
     public void linkUser(int patientId, int userId) {
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE patients SET user_id = ? WHERE id = ?")) {
+             PreparedStatement ps = conn.prepareStatement("UPDATE patients SET user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")) {
             ps.setInt(1, userId);
             ps.setInt(2, patientId);
             ps.executeUpdate();

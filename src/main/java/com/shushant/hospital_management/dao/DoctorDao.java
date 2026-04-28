@@ -1,6 +1,8 @@
 package com.shushant.hospital_management.dao;
 
 import com.shushant.hospital_management.db.DatabaseConnection;
+import com.shushant.hospital_management.util.AuditLogger;
+import com.shushant.hospital_management.util.ValidationUtils;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +12,15 @@ public class DoctorDao {
     public int create(String firstName, String lastName, String email, String phone,
                       String specialization, String licenseNumber, int departmentId,
                       double consultationFee, int consultationDurationMin) {
+        ValidationUtils.requireNonEmpty(firstName, "First Name");
+        ValidationUtils.requireNonEmpty(lastName, "Last Name");
+        ValidationUtils.requireNonEmpty(email, "Email");
+        ValidationUtils.requireNonEmpty(phone, "Phone");
+        ValidationUtils.requireNonEmpty(specialization, "Specialization");
+        ValidationUtils.requireNonEmpty(licenseNumber, "License Number");
+        ValidationUtils.requireNonNegative(consultationFee, "Consultation Fee");
+        ValidationUtils.requirePositiveInt(consultationDurationMin, "Consultation Duration");
+
         String sql = """
             INSERT INTO doctors (first_name, last_name, email, phone, specialization,
                 license_number, department_id, consultation_fee, consultation_duration_min)
@@ -22,7 +33,11 @@ public class DoctorDao {
             ps.setString(6, licenseNumber); ps.setInt(7, departmentId);
             ps.setDouble(8, consultationFee); ps.setInt(9, consultationDurationMin);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return rs.getInt(1);
+            if (rs.next()) {
+                int id = rs.getInt(1);
+                AuditLogger.log("CREATE", "doctors", id, "Dr. " + firstName + " " + lastName);
+                return id;
+            }
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
@@ -30,9 +45,12 @@ public class DoctorDao {
     public void update(int id, String firstName, String lastName, String email, String phone,
                        String specialization, int departmentId, double consultationFee,
                        int consultationDurationMin) {
+        ValidationUtils.requireNonEmpty(firstName, "First Name");
+        ValidationUtils.requireNonEmpty(lastName, "Last Name");
+
         String sql = """
             UPDATE doctors SET first_name=?, last_name=?, email=?, phone=?, specialization=?,
-                department_id=?, consultation_fee=?, consultation_duration_min=? WHERE id=?
+                department_id=?, consultation_fee=?, consultation_duration_min=?, updated_at=CURRENT_TIMESTAMP WHERE id=?
         """;
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -41,14 +59,53 @@ public class DoctorDao {
             ps.setInt(6, departmentId); ps.setDouble(7, consultationFee);
             ps.setInt(8, consultationDurationMin); ps.setInt(9, id);
             ps.executeUpdate();
+            AuditLogger.log("UPDATE", "doctors", id, "Doctor details updated");
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
+    /**
+     * Cascading soft delete — deactivates doctor AND:
+     * 1. Cancels all future/pending appointments
+     * 2. Cancels BOOKED lab tests ordered by this doctor
+     */
     public void delete(int id) {
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE doctors SET active = FALSE WHERE id = ?")) {
-            ps.setInt(1, id); ps.executeUpdate();
-        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Soft-delete the doctor
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE doctors SET active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?")) {
+                ps.setInt(1, id);
+                ps.executeUpdate();
+            }
+
+            // 2. Cancel pending/future appointments
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE appointments SET status = 'CANCELLED', cancel_reason = 'Doctor deactivated' WHERE doctor_id = ? AND status IN ('BOOKED','CHECKED_IN')")) {
+                ps.setInt(1, id);
+                int cancelled = ps.executeUpdate();
+                if (cancelled > 0) AuditLogger.log("CASCADE_CANCEL", "appointments", id, cancelled + " appointment(s) cancelled for deactivated doctor");
+            }
+
+            // 3. Cancel BOOKED lab tests
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE lab_tests SET status = 'CANCELLED' WHERE doctor_id = ? AND status IN ('BOOKED','SAMPLE_COLLECTED')")) {
+                ps.setInt(1, id);
+                int cancelled = ps.executeUpdate();
+                if (cancelled > 0) AuditLogger.log("CASCADE_CANCEL", "lab_tests", id, cancelled + " lab test(s) cancelled for deactivated doctor");
+            }
+
+            conn.commit();
+            AuditLogger.log("DELETE", "doctors", id, "Doctor deactivated with cascading cleanup");
+
+        } catch (SQLException e) {
+            if (conn != null) { try { conn.rollback(); } catch (SQLException ignored) {} }
+            throw new RuntimeException("Database error during doctor deletion", e);
+        } finally {
+            if (conn != null) { try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {} }
+        }
     }
 
     public List<Object[]> findAll() {

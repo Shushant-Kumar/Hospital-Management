@@ -111,6 +111,8 @@ public class BillingPanel extends JPanel {
                 dao.recordPayment(id, Double.parseDouble(fAmount.getText().trim()),
                         (String) fMethod.getSelectedItem(), fRef.getText().trim());
                 loadData();
+            } catch (IllegalStateException | IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Payment Error", JOptionPane.WARNING_MESSAGE);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Invalid input: " + ex.getMessage());
             }

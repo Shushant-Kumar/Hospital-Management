@@ -118,8 +118,12 @@ public class LabTestPanel extends JPanel {
         int row = table.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a test first."); return; }
         int id = (int) tableModel.getValueAt(row, 0);
-        dao.updateStatus(id, status);
-        loadData();
+        try {
+            dao.updateStatus(id, status);
+            loadData();
+        } catch (IllegalStateException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Invalid Transition", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     private void enterResult() {
@@ -131,8 +135,12 @@ public class LabTestPanel extends JPanel {
         JTextField fResult = new JTextField(), fNormal = new JTextField(), fTech = new JTextField();
         Object[] fields = { "Result*:", fResult, "Normal Range:", fNormal, "Technician:", fTech };
         if (JOptionPane.showConfirmDialog(this, fields, "Enter Test Result", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION) {
-            dao.saveResult(id, fResult.getText().trim(), fNormal.getText().trim(), fTech.getText().trim());
-            loadData();
+            try {
+                dao.saveResult(id, fResult.getText().trim(), fNormal.getText().trim(), fTech.getText().trim());
+                loadData();
+            } catch (IllegalStateException | IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.WARNING_MESSAGE);
+            }
         }
     }
 

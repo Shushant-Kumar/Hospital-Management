@@ -1,6 +1,8 @@
 package com.shushant.hospital_management.dao;
 
 import com.shushant.hospital_management.db.DatabaseConnection;
+import com.shushant.hospital_management.util.AuditLogger;
+import com.shushant.hospital_management.util.ValidationUtils;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +11,11 @@ public class PharmacyDao {
 
     public int create(String name, String genericName, String manufacturer, String batchNumber,
                       Date expiryDate, int quantity, double unitPrice, int reorderLevel, String category) {
+        ValidationUtils.requireNonEmpty(name, "Medicine Name");
+        ValidationUtils.requireNonNegativeInt(quantity, "Quantity");
+        ValidationUtils.requireNonNegative(unitPrice, "Unit Price");
+        ValidationUtils.requireNonNegativeInt(reorderLevel, "Reorder Level");
+
         String sql = """
             INSERT INTO medicines (name, generic_name, manufacturer, batch_number, expiry_date,
                 quantity, unit_price, reorder_level, category) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id
@@ -19,7 +26,11 @@ public class PharmacyDao {
             ps.setString(4, batchNumber); ps.setDate(5, expiryDate); ps.setInt(6, quantity);
             ps.setDouble(7, unitPrice); ps.setInt(8, reorderLevel); ps.setString(9, category);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return rs.getInt(1);
+            if (rs.next()) {
+                int id = rs.getInt(1);
+                AuditLogger.log("CREATE", "medicines", id, "Medicine " + name + " qty=" + quantity);
+                return id;
+            }
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
@@ -27,9 +38,15 @@ public class PharmacyDao {
     public void update(int id, String name, String genericName, String manufacturer,
                        String batchNumber, Date expiryDate, int quantity, double unitPrice,
                        int reorderLevel, String category) {
+        ValidationUtils.requireNonEmpty(name, "Medicine Name");
+        ValidationUtils.requireNonNegativeInt(quantity, "Quantity");
+        ValidationUtils.requireNonNegative(unitPrice, "Unit Price");
+        ValidationUtils.requireNonNegativeInt(reorderLevel, "Reorder Level");
+
         String sql = """
             UPDATE medicines SET name=?, generic_name=?, manufacturer=?, batch_number=?,
-                expiry_date=?, quantity=?, unit_price=?, reorder_level=?, category=? WHERE id=?
+                expiry_date=?, quantity=?, unit_price=?, reorder_level=?, category=?,
+                updated_at=CURRENT_TIMESTAMP WHERE id=?
         """;
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -38,6 +55,7 @@ public class PharmacyDao {
             ps.setDouble(7, unitPrice); ps.setInt(8, reorderLevel); ps.setString(9, category);
             ps.setInt(10, id);
             ps.executeUpdate();
+            AuditLogger.log("UPDATE", "medicines", id, "Medicine " + name + " updated");
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 
@@ -85,11 +103,20 @@ public class PharmacyDao {
         return list;
     }
 
-    public void deductStock(int medicineId, int qty) {
+    /** Returns true if deduction was successful, false if insufficient stock. */
+    public boolean deductStock(int medicineId, int qty) {
+        ValidationUtils.requirePositiveInt(qty, "Deduction Quantity");
+
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE medicines SET quantity = quantity - ? WHERE id = ? AND quantity >= ?")) {
+             PreparedStatement ps = conn.prepareStatement(
+                 "UPDATE medicines SET quantity = quantity - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND quantity >= ?")) {
             ps.setInt(1, qty); ps.setInt(2, medicineId); ps.setInt(3, qty);
-            ps.executeUpdate();
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                AuditLogger.log("DEDUCT_STOCK", "medicines", medicineId, "Deducted " + qty + " units");
+                return true;
+            }
+            return false;
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
     }
 }

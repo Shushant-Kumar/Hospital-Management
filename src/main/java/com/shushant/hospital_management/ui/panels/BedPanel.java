@@ -102,9 +102,13 @@ public class BedPanel extends JPanel {
                 .map(p -> p[2] + " " + p[3] + " (" + p[1] + ")").toArray(String[]::new));
         Object[] fields = { "Select Patient:", fPatient };
         if (JOptionPane.showConfirmDialog(this, fields, "Assign Patient", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) == JOptionPane.OK_OPTION) {
-            int patientId = (int) patients.get(fPatient.getSelectedIndex())[0];
-            dao.assignPatient(bedId, patientId);
-            loadData();
+            try {
+                int patientId = (int) patients.get(fPatient.getSelectedIndex())[0];
+                dao.assignPatient(bedId, patientId);
+                loadData();
+            } catch (IllegalStateException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Assignment Error", JOptionPane.WARNING_MESSAGE);
+            }
         }
     }
 
@@ -117,8 +121,12 @@ public class BedPanel extends JPanel {
         if ("AVAILABLE".equals(tableModel.getValueAt(row, 5))) {
             JOptionPane.showMessageDialog(this, "Bed is already available."); return;
         }
-        dao.releaseBed(bedId);
-        loadData();
+        try {
+            dao.releaseBed(bedId);
+            loadData();
+        } catch (IllegalStateException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Release Error", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     private JButton btn(String text, Color bg) {

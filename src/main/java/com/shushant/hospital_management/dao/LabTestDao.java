@@ -1,13 +1,30 @@
 package com.shushant.hospital_management.dao;
 
 import com.shushant.hospital_management.db.DatabaseConnection;
+import com.shushant.hospital_management.util.AuditLogger;
+import com.shushant.hospital_management.util.ValidationUtils;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class LabTestDao {
 
+    // ── Valid state transitions ──────────────────────────────────────────────
+    private static final Map<String, Set<String>> VALID_TRANSITIONS = Map.of(
+        "BOOKED",           Set.of("SAMPLE_COLLECTED", "CANCELLED"),
+        "SAMPLE_COLLECTED", Set.of("PROCESSING", "CANCELLED"),
+        "PROCESSING",       Set.of("COMPLETED", "CANCELLED"),
+        "COMPLETED",        Set.of(),
+        "CANCELLED",        Set.of()
+    );
+
     public int create(int patientId, int doctorId, String testName, String testCode, String sampleType, int createdBy) {
+        ValidationUtils.requirePositiveInt(patientId, "Patient ID");
+        ValidationUtils.requirePositiveInt(doctorId, "Doctor ID");
+        ValidationUtils.requireNonEmpty(testName, "Test Name");
+
         String sql = """
             INSERT INTO lab_tests (patient_id, doctor_id, test_name, test_code, sample_type, created_by)
             VALUES (?,?,?,?,?,?) RETURNING id
@@ -17,27 +34,96 @@ public class LabTestDao {
             ps.setInt(1, patientId); ps.setInt(2, doctorId); ps.setString(3, testName);
             ps.setString(4, testCode); ps.setString(5, sampleType); ps.setInt(6, createdBy);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) return rs.getInt(1);
+            if (rs.next()) {
+                int id = rs.getInt(1);
+                AuditLogger.log("CREATE", "lab_tests", id, "Test " + testName + " for patient=" + patientId);
+                return id;
+            }
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return -1;
     }
 
-    public void updateStatus(int id, String status) {
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE lab_tests SET status = ? WHERE id = ?")) {
-            ps.setString(1, status); ps.setInt(2, id);
-            ps.executeUpdate();
-        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+    /** State-machine validated status update. */
+    public void updateStatus(int id, String newStatus) {
+        ValidationUtils.requireNonEmpty(newStatus, "Status");
+
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            String currentStatus;
+            try (PreparedStatement ps = conn.prepareStatement("SELECT status FROM lab_tests WHERE id = ? FOR UPDATE")) {
+                ps.setInt(1, id);
+                ResultSet rs = ps.executeQuery();
+                if (!rs.next()) throw new IllegalStateException("Lab test ID " + id + " not found.");
+                currentStatus = rs.getString("status");
+            }
+
+            Set<String> allowed = VALID_TRANSITIONS.get(currentStatus);
+            if (allowed == null || !allowed.contains(newStatus)) {
+                throw new IllegalStateException("Invalid lab test status transition: " + currentStatus + " → " + newStatus);
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement("UPDATE lab_tests SET status = ? WHERE id = ?")) {
+                ps.setString(1, newStatus); ps.setInt(2, id);
+                ps.executeUpdate();
+            }
+
+            conn.commit();
+            AuditLogger.log("UPDATE_STATUS", "lab_tests", id, currentStatus + " → " + newStatus);
+
+        } catch (SQLException e) {
+            rollback(conn);
+            throw new RuntimeException("Database error", e);
+        } catch (IllegalStateException e) {
+            rollback(conn);
+            throw e;
+        } finally {
+            closeConnection(conn);
+        }
     }
 
     public void saveResult(int id, String result, String normalRange, String technicianName) {
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
+        ValidationUtils.requireNonEmpty(result, "Result");
+
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // Verify test is in PROCESSING state
+            String currentStatus;
+            try (PreparedStatement ps = conn.prepareStatement("SELECT status FROM lab_tests WHERE id = ? FOR UPDATE")) {
+                ps.setInt(1, id);
+                ResultSet rs = ps.executeQuery();
+                if (!rs.next()) throw new IllegalStateException("Lab test ID " + id + " not found.");
+                currentStatus = rs.getString("status");
+            }
+
+            if (!"PROCESSING".equals(currentStatus)) {
+                throw new IllegalStateException("Cannot enter result — test must be in PROCESSING state (current: " + currentStatus + ").");
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(
                 "UPDATE lab_tests SET result = ?, normal_range = ?, technician_name = ?, status = 'COMPLETED' WHERE id = ?")) {
-            ps.setString(1, result); ps.setString(2, normalRange);
-            ps.setString(3, technicianName); ps.setInt(4, id);
-            ps.executeUpdate();
-        } catch (SQLException e) { throw new RuntimeException("Database error", e); }
+                ps.setString(1, result); ps.setString(2, normalRange);
+                ps.setString(3, technicianName); ps.setInt(4, id);
+                ps.executeUpdate();
+            }
+
+            conn.commit();
+            AuditLogger.log("ENTER_RESULT", "lab_tests", id, "Result entered by " + technicianName);
+
+        } catch (SQLException e) {
+            rollback(conn);
+            throw new RuntimeException("Database error", e);
+        } catch (IllegalStateException e) {
+            rollback(conn);
+            throw e;
+        } finally {
+            closeConnection(conn);
+        }
     }
 
     public List<Object[]> findAll() {
@@ -153,5 +239,13 @@ public class LabTestDao {
             if (rs.next()) return rs.getInt(1) > 0;
         } catch (SQLException e) { throw new RuntimeException("Database error", e); }
         return false;
+    }
+
+    private void rollback(Connection conn) {
+        if (conn != null) { try { conn.rollback(); } catch (SQLException ignored) {} }
+    }
+
+    private void closeConnection(Connection conn) {
+        if (conn != null) { try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {} }
     }
 }

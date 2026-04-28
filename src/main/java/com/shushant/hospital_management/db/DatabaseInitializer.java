@@ -50,9 +50,10 @@ public final class DatabaseInitializer {
                             license_number VARCHAR(50) UNIQUE NOT NULL,
                             department_id INT REFERENCES departments(id),
                             user_id INT REFERENCES users(id),
-                            consultation_fee NUMERIC(10,2) DEFAULT 0,
-                            consultation_duration_min INT DEFAULT 30,
+                            consultation_fee NUMERIC(10,2) DEFAULT 0 CHECK (consultation_fee >= 0),
+                            consultation_duration_min INT DEFAULT 30 CHECK (consultation_duration_min > 0),
                             active BOOLEAN NOT NULL DEFAULT TRUE,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     """);
@@ -66,10 +67,10 @@ public final class DatabaseInitializer {
                             email VARCHAR(120),
                             phone VARCHAR(20) NOT NULL,
                             date_of_birth DATE,
-                            gender VARCHAR(10),
+                            gender VARCHAR(10) CHECK (gender IN ('MALE','FEMALE','OTHER')),
                             blood_group VARCHAR(5),
                             address VARCHAR(255),
-                            patient_type VARCHAR(15) DEFAULT 'OPD',
+                            patient_type VARCHAR(15) DEFAULT 'OPD' CHECK (patient_type IN ('OPD','IPD','EMERGENCY')),
                             allergies VARCHAR(500),
                             insurance_provider VARCHAR(120),
                             insurance_policy VARCHAR(50),
@@ -78,6 +79,7 @@ public final class DatabaseInitializer {
                             user_id INT REFERENCES users(id),
                             created_by INT REFERENCES users(id),
                             active BOOLEAN NOT NULL DEFAULT TRUE,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     """);
@@ -85,18 +87,20 @@ public final class DatabaseInitializer {
             stmt.execute("""
                         CREATE TABLE IF NOT EXISTS appointments (
                             id SERIAL PRIMARY KEY,
-                            patient_id INT REFERENCES patients(id),
-                            doctor_id INT REFERENCES doctors(id),
+                            patient_id INT NOT NULL REFERENCES patients(id),
+                            doctor_id INT NOT NULL REFERENCES doctors(id),
                             appointment_date DATE NOT NULL,
                             start_time TIME NOT NULL,
                             end_time TIME NOT NULL,
                             token_number INT DEFAULT 0,
-                            status VARCHAR(20) DEFAULT 'BOOKED',
+                            status VARCHAR(20) DEFAULT 'BOOKED'
+                                CHECK (status IN ('BOOKED','CHECKED_IN','IN_PROGRESS','COMPLETED','CANCELLED','NO_SHOW')),
                             notes VARCHAR(500),
                             cancel_reason VARCHAR(255),
                             walk_in BOOLEAN DEFAULT FALSE,
                             created_by INT REFERENCES users(id),
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            CHECK (start_time < end_time)
                         )
                     """);
 
@@ -146,13 +150,14 @@ public final class DatabaseInitializer {
                         CREATE TABLE IF NOT EXISTS bills (
                             id SERIAL PRIMARY KEY,
                             bill_number VARCHAR(30) UNIQUE NOT NULL,
-                            patient_id INT REFERENCES patients(id),
-                            total_amount NUMERIC(12,2) DEFAULT 0,
-                            discount NUMERIC(12,2) DEFAULT 0,
-                            tax_amount NUMERIC(12,2) DEFAULT 0,
-                            net_amount NUMERIC(12,2) DEFAULT 0,
-                            paid_amount NUMERIC(12,2) DEFAULT 0,
-                            status VARCHAR(20) DEFAULT 'PENDING',
+                            patient_id INT NOT NULL REFERENCES patients(id),
+                            total_amount NUMERIC(12,2) DEFAULT 0 CHECK (total_amount >= 0),
+                            discount NUMERIC(12,2) DEFAULT 0 CHECK (discount >= 0),
+                            tax_amount NUMERIC(12,2) DEFAULT 0 CHECK (tax_amount >= 0),
+                            net_amount NUMERIC(12,2) DEFAULT 0 CHECK (net_amount >= 0),
+                            paid_amount NUMERIC(12,2) DEFAULT 0 CHECK (paid_amount >= 0),
+                            status VARCHAR(20) DEFAULT 'PENDING'
+                                CHECK (status IN ('PENDING','PARTIAL','PAID','CANCELLED','REFUNDED')),
                             bill_type VARCHAR(30) DEFAULT 'CONSULTATION',
                             created_by INT REFERENCES users(id),
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -190,11 +195,12 @@ public final class DatabaseInitializer {
                             manufacturer VARCHAR(120),
                             batch_number VARCHAR(50),
                             expiry_date DATE,
-                            quantity INT DEFAULT 0,
-                            unit_price NUMERIC(10,2) DEFAULT 0,
-                            reorder_level INT DEFAULT 10,
+                            quantity INT DEFAULT 0 CHECK (quantity >= 0),
+                            unit_price NUMERIC(10,2) DEFAULT 0 CHECK (unit_price >= 0),
+                            reorder_level INT DEFAULT 10 CHECK (reorder_level >= 0),
                             category VARCHAR(50),
                             created_by INT REFERENCES users(id),
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     """);
@@ -202,11 +208,12 @@ public final class DatabaseInitializer {
             stmt.execute("""
                         CREATE TABLE IF NOT EXISTS lab_tests (
                             id SERIAL PRIMARY KEY,
-                            patient_id INT REFERENCES patients(id),
-                            doctor_id INT REFERENCES doctors(id),
+                            patient_id INT NOT NULL REFERENCES patients(id),
+                            doctor_id INT NOT NULL REFERENCES doctors(id),
                             test_name VARCHAR(150) NOT NULL,
                             test_code VARCHAR(30),
-                            status VARCHAR(25) DEFAULT 'BOOKED',
+                            status VARCHAR(25) DEFAULT 'BOOKED'
+                                CHECK (status IN ('BOOKED','SAMPLE_COLLECTED','PROCESSING','COMPLETED','CANCELLED')),
                             sample_type VARCHAR(50),
                             result TEXT,
                             normal_range VARCHAR(100),
@@ -223,13 +230,21 @@ public final class DatabaseInitializer {
                             bed_number VARCHAR(20) NOT NULL,
                             room_type VARCHAR(30) DEFAULT 'GENERAL',
                             floor INT DEFAULT 1,
-                            status VARCHAR(20) DEFAULT 'AVAILABLE',
+                            status VARCHAR(20) DEFAULT 'AVAILABLE'
+                                CHECK (status IN ('AVAILABLE','OCCUPIED','MAINTENANCE','RESERVED')),
                             patient_id INT REFERENCES patients(id),
-                            daily_rate NUMERIC(10,2) DEFAULT 0,
+                            daily_rate NUMERIC(10,2) DEFAULT 0 CHECK (daily_rate >= 0),
                             created_by INT REFERENCES users(id),
                             UNIQUE(ward_name, bed_number)
                         )
                     """);
+
+            // Prevent same patient assigned to multiple beds simultaneously
+            stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_beds_one_patient ON beds(patient_id) WHERE patient_id IS NOT NULL");
+
+            // Sequences for collision-free ID generation
+            stmt.execute("CREATE SEQUENCE IF NOT EXISTS patient_uid_seq START 20250001");
+            stmt.execute("CREATE SEQUENCE IF NOT EXISTS bill_number_seq START 20250001");
 
             stmt.execute("""
                         CREATE TABLE IF NOT EXISTS audit_logs (

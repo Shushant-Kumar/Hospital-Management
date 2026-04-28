@@ -120,19 +120,17 @@ public class AppointmentPanel extends JPanel {
                 int patientId = (int) patients.get(fPatient.getSelectedIndex())[0];
                 int doctorId = Integer.parseInt(doctors.get(fDoctor.getSelectedIndex())[0]);
                 Date date = Date.valueOf(fDate.getText().trim());
-                Time startTime = Time.valueOf(fTime.getText().trim() + ":00");
-                Time endTime = Time.valueOf(LocalTime.parse(fTime.getText().trim()).plusMinutes(30).toString());
+                LocalTime parsedTime = LocalTime.parse(fTime.getText().trim());
+                Time startTime = Time.valueOf(parsedTime);
+                Time endTime = Time.valueOf(parsedTime.plusMinutes(30));
 
-                if (dao.hasConflict(doctorId, date, startTime, endTime)) {
-                    JOptionPane.showMessageDialog(this, "Doctor has a conflicting appointment at this time!", "Conflict", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-
-                int token = dao.getNextToken(doctorId, date);
-                dao.create(patientId, doctorId, date, startTime, endTime, token, fNotes.getText().trim(),
-                        fWalkIn.isSelected(), SessionManager.getCurrentUserId());
-                JOptionPane.showMessageDialog(this, "Appointment booked! Token: " + token, "Success", JOptionPane.INFORMATION_MESSAGE);
+                // Transactional: conflict check + token generation + insert all atomic
+                dao.create(patientId, doctorId, date, startTime, endTime,
+                        fNotes.getText().trim(), fWalkIn.isSelected(), SessionManager.getCurrentUserId());
+                JOptionPane.showMessageDialog(this, "Appointment booked successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
                 loadData();
+            } catch (IllegalStateException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Booking Error", JOptionPane.WARNING_MESSAGE);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Invalid input: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -168,8 +166,12 @@ public class AppointmentPanel extends JPanel {
             return;
         }
 
-        dao.updateStatus(id, status, null);
-        loadData();
+        try {
+            dao.updateStatus(id, status, null);
+            loadData();
+        } catch (IllegalStateException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Invalid Transition", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     private JButton btn(String text, Color bg) {

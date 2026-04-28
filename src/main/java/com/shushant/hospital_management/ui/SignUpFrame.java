@@ -1,6 +1,5 @@
 package com.shushant.hospital_management.ui;
 
-import com.shushant.hospital_management.dao.PatientDao;
 import com.shushant.hospital_management.dao.UserDao;
 import com.shushant.hospital_management.util.SessionManager;
 
@@ -20,7 +19,6 @@ public class SignUpFrame extends JFrame {
     private final JComboBox<String> genderBox = new JComboBox<>(new String[]{"MALE", "FEMALE", "OTHER"});
 
     private final UserDao userDao = new UserDao();
-    private final PatientDao patientDao = new PatientDao();
 
     public SignUpFrame() {
         setTitle("Levaa — Patient Sign Up");
@@ -141,29 +139,12 @@ public class SignUpFrame extends JFrame {
             return;
         }
 
-        if (userDao.exists(user, email)) {
-            JOptionPane.showMessageDialog(this, "Username or email is already taken. Please choose another.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
         try {
-            // 1. Create User
-            int userId = userDao.create(user, pass, first + " " + last, email, "PATIENT");
-            if (userId == -1) {
-                JOptionPane.showMessageDialog(this, "Failed to create user account.", "Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
+            // Transactional: creates user + patient + links them atomically
+            int[] ids = userDao.createPatientUser(user, pass, first, last, email, phone, dob,
+                    (String) genderBox.getSelectedItem());
 
-            // 2. Create Patient Record
-            int patientId = patientDao.create(
-                patientDao.generatePatientUid(), first, last, email, phone, dob,
-                (String) genderBox.getSelectedItem(), "", "", "OPD", "", "", "", "", "", userId
-            );
-
-            // 3. Link them
-            patientDao.linkUser(patientId, userId);
-
-            // 4. Auto-login
+            // Auto-login
             if (SessionManager.login(user, pass)) {
                 JOptionPane.showMessageDialog(this, "Registration Successful! Welcome to your dashboard.", "Success", JOptionPane.INFORMATION_MESSAGE);
                 dispose();
@@ -173,6 +154,8 @@ public class SignUpFrame extends JFrame {
                 dispose();
                 SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
             }
+        } catch (IllegalStateException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Registration Error", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this, "An error occurred during registration.", "Error", JOptionPane.ERROR_MESSAGE);
